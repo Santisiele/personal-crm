@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model action_type {
+  id            BigInt          @id @default(autoincrement())
+  description   String
+  task_activity task_activity[]
+}
+
+model activity_status {
+  id            BigInt          @id @default(autoincrement())
+  description   String
+  task_activity task_activity[]
+}
+
+model app_user {
+  id                                                    BigInt            @id @default(autoincrement())
+  name                                                  String
+  created_at                                            DateTime          @default(now()) @db.Timestamptz(6)
+  user_role_id                                          BigInt
+  user_password_hash                                    String
+  user_role                                             user_role         @relation(fields: [user_role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_app_user_user_role")
+  company                                               company[]
+  task_task_created_byToapp_user                        task[]            @relation("task_created_byToapp_user")
+  task_task_deleted_byToapp_user                        task[]            @relation("task_deleted_byToapp_user")
+  task_activity_task_activity_created_byToapp_user      task_activity[]   @relation("task_activity_created_byToapp_user")
+  task_activity_task_activity_user_idToapp_user         task_activity[]   @relation("task_activity_user_idToapp_user")
+  task_assignment_task_assignment_assigned_byToapp_user task_assignment[] @relation("task_assignment_assigned_byToapp_user")
+  task_assignment_task_assignment_user_idToapp_user     task_assignment[] @relation("task_assignment_user_idToapp_user")
+}
+
+model assignment_status {
+  id              BigInt            @id @default(autoincrement())
+  description     String
+  task_assignment task_assignment[]
+}
+
+model company {
+  id                BigInt              @id @default(autoincrement())
+  company_name      String
+  cuit              String?
+  brand             String?
+  product           String?
+  origin            String?
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  created_by        BigInt
+  status_id         BigInt
+  app_user          app_user            @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_company_created_by")
+  company_status    company_status      @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_company_status")
+  contact_x_company contact_x_company[]
+  task              task[]
+}
+
+model company_status {
+  id          BigInt    @id @default(autoincrement())
+  description String
+  company     company[]
+}
+
+model contact {
+  id                BigInt              @id @default(autoincrement())
+  contact_name      String
+  email             String?
+  birth             DateTime?           @db.Date
+  contact_x_company contact_x_company[]
+}
+
+model contact_x_company {
+  id              BigInt  @id @default(autoincrement())
+  contact_id      BigInt
+  company_id      BigInt
+  role_in_company String?
+  phone           String?
+  company         company @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_contact_x_company_company")
+  contact         contact @relation(fields: [contact_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_contact_x_company_contact")
+}
+
+model task {
+  id                                 BigInt            @id @default(autoincrement())
+  title                              String
+  description                        String
+  company_id                         BigInt?
+  created_at                         DateTime          @default(now()) @db.Timestamptz(6)
+  status_id                          BigInt
+  due_date                           DateTime?         @db.Timestamptz(6)
+  created_by                         BigInt
+  deleted_at                         DateTime?         @db.Timestamptz(6)
+  deleted_by                         BigInt?
+  company                            company?          @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_company")
+  app_user_task_created_byToapp_user app_user          @relation("task_created_byToapp_user", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_created_by")
+  app_user_task_deleted_byToapp_user app_user?         @relation("task_deleted_byToapp_user", fields: [deleted_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_deleted_by")
+  task_status                        task_status       @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_status")
+  task_activity                      task_activity[]
+  task_assignment                    task_assignment[]
+}
+
+model task_activity {
+  id                                          BigInt          @id @default(autoincrement())
+  task_id                                     BigInt
+  user_id                                     BigInt
+  activity_date                               DateTime        @db.Date
+  description                                 String?
+  next_action                                 String?
+  next_action_date                            DateTime?       @db.Date
+  created_at                                  DateTime        @default(now()) @db.Timestamptz(6)
+  status_id                                   BigInt
+  action_type_id                              BigInt
+  created_by                                  BigInt
+  action_type                                 action_type     @relation(fields: [action_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_activity_action_type")
+  app_user_task_activity_created_byToapp_user app_user        @relation("task_activity_created_byToapp_user", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_activity_created_by")
+  activity_status                             activity_status @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_activity_status")
+  task                                        task            @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_activity_task")
+  app_user_task_activity_user_idToapp_user    app_user        @relation("task_activity_user_idToapp_user", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_activity_user")
+}
+
+model task_assignment {
+  id                                             BigInt            @id @default(autoincrement())
+  task_id                                        BigInt
+  user_id                                        BigInt
+  status_id                                      BigInt
+  assigned_at                                    DateTime          @default(now()) @db.Timestamptz(6)
+  assigned_by                                    BigInt
+  app_user_task_assignment_assigned_byToapp_user app_user          @relation("task_assignment_assigned_byToapp_user", fields: [assigned_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_assignment_assigned_by")
+  assignment_status                              assignment_status @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_assignment_status")
+  task                                           task              @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_assignment_task")
+  app_user_task_assignment_user_idToapp_user     app_user          @relation("task_assignment_user_idToapp_user", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_task_assignment_user")
+}
+
+model task_status {
+  id          BigInt @id @default(autoincrement())
+  description String
+  task        task[]
+}
+
+model user_role {
+  id          BigInt     @id @default(autoincrement())
+  description String
+  app_user    app_user[]
+}
