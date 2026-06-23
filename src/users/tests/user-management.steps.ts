@@ -17,26 +17,50 @@ defineFeature(feature, (test) => {
     createUser = new CreateUser(users, new SequentialIdGenerator());
   });
 
-  test('Create a normal user', ({ given, when, then, and }) => {
+  const anAdministratorIsAuthenticated = (given: any) =>
     given('an administrator is authenticated', () => {
-      // No authorization rule is exercised by this scenario yet (no rejection
-      // scenario), so the authenticated admin is just the acting context.
+      // No authorization rule is exercised by these scenarios yet (there is no
+      // rejection scenario), so the authenticated admin is just the acting
+      // context. Enforcement will be introduced when a scenario demands it.
     });
 
-    when('creates a user with role USER', async () => {
+  const createsAUserWithRole = (when: any) =>
+    when(/^creates a user with role (.*)$/, async (role: string) => {
       createdUser = await createUser.execute({
         name: 'Jane Doe',
-        role: UserRole.USER,
+        role: UserRole[role as keyof typeof UserRole],
       });
     });
 
+  const theUserShouldBeStored = (then: any) =>
     then('the user should be stored', async () => {
       const stored = await users.findById(createdUser.id);
       expect(stored).not.toBeNull();
     });
 
-    and('the user role should be USER', () => {
-      expect(createdUser.role).toBe(UserRole.USER);
+  const theUserRoleShouldBe = (and: any) =>
+    and(/^the user role should be (.*)$/, (role: string) => {
+      expect(createdUser.role).toBe(UserRole[role as keyof typeof UserRole]);
     });
+
+  test('Create a normal user', ({ given, when, then, and }) => {
+    anAdministratorIsAuthenticated(given);
+    createsAUserWithRole(when);
+    theUserShouldBeStored(then);
+    theUserRoleShouldBe(and);
+  });
+
+  test('Create an administrator user', ({ given, when, then, and }) => {
+    anAdministratorIsAuthenticated(given);
+    createsAUserWithRole(when);
+    theUserShouldBeStored(then);
+    theUserRoleShouldBe(and);
+  });
+
+  test('Create a creator user', ({ given, when, then, and }) => {
+    anAdministratorIsAuthenticated(given);
+    createsAUserWithRole(when);
+    theUserShouldBeStored(then);
+    theUserRoleShouldBe(and);
   });
 });
