@@ -1,0 +1,93 @@
+import { loadFeature, defineFeature } from 'jest-cucumber';
+import { UserRole } from '../../users/domain/user-role';
+import { Actor } from '../domain/actor';
+import { Task } from '../domain/task';
+import { AccessDeniedError } from '../domain/access-denied.error';
+import { ViewTask } from '../application/view-task.use-case';
+import { InMemoryTaskRepository } from '../infrastructure/persistence/in-memory-task.repository';
+
+const feature = loadFeature('specs/user_permissions.feature', { errors: false });
+
+const ANOTHER_USER_ID = 'another-user';
+
+defineFeature(feature, (test) => {
+  let tasks: InMemoryTaskRepository;
+  let viewTask: ViewTask;
+  let actor: Actor;
+  let task: Task;
+  let accessGranted: boolean;
+
+  beforeEach(() => {
+    tasks = new InMemoryTaskRepository();
+    viewTask = new ViewTask(tasks);
+  });
+
+  const authenticatedAs = (given: any, phrase: string, role: UserRole, id: string) =>
+    given(phrase, () => {
+      actor = { id, role };
+    });
+
+  const aTaskBelongsToAnotherUser = (and: any) =>
+    and('a task belongs to another user', async () => {
+      task = Task.create({ id: 'task-1', ownerId: ANOTHER_USER_ID });
+      await tasks.save(task);
+    });
+
+  const theTaskBelongsToThatUser = (and: any) =>
+    and('the task belongs to that user', async () => {
+      task = Task.create({ id: 'task-1', ownerId: actor.id });
+      await tasks.save(task);
+    });
+
+  const requestsTheTask = (when: any) =>
+    when('requests the task', async () => {
+      try {
+        await viewTask.execute({ actor, taskId: task.id });
+        accessGranted = true;
+      } catch (error) {
+        if (error instanceof AccessDeniedError) {
+          accessGranted = false;
+        } else {
+          throw error;
+        }
+      }
+    });
+
+  const accessIsGranted = (then: any) =>
+    then('access is granted', () => {
+      expect(accessGranted).toBe(true);
+    });
+
+  const accessIsDenied = (then: any) =>
+    then('access is denied', () => {
+      expect(accessGranted).toBe(false);
+    });
+
+  test('Administrator can view any task', ({ given, and, when, then }) => {
+    authenticatedAs(given, 'an administrator is authenticated', UserRole.ADMIN, 'admin-1');
+    aTaskBelongsToAnotherUser(and);
+    requestsTheTask(when);
+    accessIsGranted(then);
+  });
+
+  test('Creator can view any task', ({ given, and, when, then }) => {
+    authenticatedAs(given, 'a creator is authenticated', UserRole.CREATOR, 'creator-1');
+    aTaskBelongsToAnotherUser(and);
+    requestsTheTask(when);
+    accessIsGranted(then);
+  });
+
+  test('User can view own task', ({ given, and, when, then }) => {
+    authenticatedAs(given, 'a user is authenticated', UserRole.USER, 'user-1');
+    theTaskBelongsToThatUser(and);
+    requestsTheTask(when);
+    accessIsGranted(then);
+  });
+
+  test("User cannot view another user's task", ({ given, and, when, then }) => {
+    authenticatedAs(given, 'a user is authenticated', UserRole.USER, 'user-1');
+    aTaskBelongsToAnotherUser(and);
+    requestsTheTask(when);
+    accessIsDenied(then);
+  });
+});
