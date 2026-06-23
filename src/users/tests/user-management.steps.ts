@@ -44,7 +44,7 @@ defineFeature(feature, (test) => {
 
   const theUserShouldBeStored = (then: any) =>
     then('the user should be stored', async () => {
-      const stored = await users.findById(createdUser.id);
+      const stored = await users.findById(createdUser.id!);
       expect(stored).not.toBeNull();
     });
 
@@ -86,20 +86,20 @@ defineFeature(feature, (test) => {
 
     when('changes the password', async () => {
       await changePassword.execute({
-        userId: createdUser.id,
+        userId: createdUser.id!,
         newPassword: 'new-password',
       });
     });
 
     then('the new password should be stored', async () => {
-      const stored = await users.findById(createdUser.id);
+      const stored = await users.findById(createdUser.id!);
       expect(await hasher.verify('new-password', stored!.passwordHash)).toBe(
         true,
       );
     });
 
     and('the old password should no longer be valid', async () => {
-      const stored = await users.findById(createdUser.id);
+      const stored = await users.findById(createdUser.id!);
       expect(await hasher.verify(oldPassword, stored!.passwordHash)).toBe(false);
     });
   });
@@ -117,13 +117,13 @@ defineFeature(feature, (test) => {
 
     when("changes the user's role to ADMIN", async () => {
       await changeUserRole.execute({
-        userId: createdUser.id,
+        userId: createdUser.id!,
         role: UserRole.ADMIN,
       });
     });
 
     then('the user role should be ADMIN', async () => {
-      const stored = await users.findById(createdUser.id);
+      const stored = await users.findById(createdUser.id!);
       expect(stored!.role).toBe(UserRole.ADMIN);
     });
   });
