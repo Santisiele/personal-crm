@@ -10,7 +10,7 @@ export class User {
   private constructor(
     public readonly id: UserId,
     public readonly name: string,
-    public readonly role: UserRole,
+    private _role: UserRole,
     private _passwordHash: string,
   ) {}
 
@@ -23,11 +23,19 @@ export class User {
     return new User(props.id, props.name, props.role, props.passwordHash);
   }
 
+  get role(): UserRole {
+    return this._role;
+  }
+
   get passwordHash(): string {
     return this._passwordHash;
   }
 
   changePassword(newPasswordHash: string): void {
     this._passwordHash = newPasswordHash;
+  }
+
+  changeRole(newRole: UserRole): void {
+    this._role = newRole;
   }
 }

@@ -3,6 +3,7 @@ import { UserRole } from '../domain/user-role';
 import { User } from '../domain/user';
 import { CreateUser } from '../application/create-user.use-case';
 import { ChangePassword } from '../application/change-password.use-case';
+import { ChangeUserRole } from '../application/change-user-role.use-case';
 import { InMemoryUserRepository } from '../infrastructure/persistence/in-memory-user.repository';
 import { SequentialIdGenerator } from './doubles/sequential-id-generator';
 import { FakePasswordHasher } from './doubles/fake-password-hasher';
@@ -14,6 +15,7 @@ defineFeature(feature, (test) => {
   let hasher: FakePasswordHasher;
   let createUser: CreateUser;
   let changePassword: ChangePassword;
+  let changeUserRole: ChangeUserRole;
   let createdUser: User;
   let oldPassword: string;
 
@@ -22,6 +24,7 @@ defineFeature(feature, (test) => {
     hasher = new FakePasswordHasher();
     createUser = new CreateUser(users, new SequentialIdGenerator(), hasher);
     changePassword = new ChangePassword(users, hasher);
+    changeUserRole = new ChangeUserRole(users);
   });
 
   const anAdministratorIsAuthenticated = (given: any) =>
@@ -99,6 +102,30 @@ defineFeature(feature, (test) => {
     and('the old password should no longer be valid', async () => {
       const stored = await users.findById(createdUser.id);
       expect(await hasher.verify(oldPassword, stored!.passwordHash)).toBe(false);
+    });
+  });
+
+  test('Promote a user to administrator', ({ given, and, when, then }) => {
+    anAdministratorIsAuthenticated(given);
+
+    and('a user exists with role USER', async () => {
+      createdUser = await createUser.execute({
+        name: 'Jane Doe',
+        role: UserRole.USER,
+        password: 'initial-password',
+      });
+    });
+
+    when("changes the user's role to ADMIN", async () => {
+      await changeUserRole.execute({
+        userId: createdUser.id,
+        role: UserRole.ADMIN,
+      });
+    });
+
+    then('the user role should be ADMIN', async () => {
+      const stored = await users.findById(createdUser.id);
+      expect(stored!.role).toBe(UserRole.ADMIN);
     });
   });
 });

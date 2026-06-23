@@ -1,17 +1,11 @@
 import { PasswordHasher } from '../domain/password-hasher';
 import { UserId } from '../domain/user';
+import { UserNotFoundError } from '../domain/user-not-found.error';
 import { UserRepository } from '../domain/user.repository';
 
 export interface ChangePasswordCommand {
   userId: UserId;
   newPassword: string;
-}
-
-export class UserNotFoundError extends Error {
-  constructor(userId: UserId) {
-    super(`User ${userId} not found`);
-    this.name = 'UserNotFoundError';
-  }
 }
 
 /**
