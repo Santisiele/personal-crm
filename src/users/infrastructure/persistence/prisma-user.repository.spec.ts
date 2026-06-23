@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { User } from '../../domain/user';
-import { UserRole } from '../../domain/user-role';
-import { PrismaUserRepository } from './prisma-user.repository';
+import { User } from '@/users/domain/user';
+import { UserRole } from '@/users/domain/user-role';
+import { PrismaUserRepository } from '@/users/infrastructure/persistence/prisma-user.repository';
 
 /**
  * Integration test for the Prisma adapter. It is OPT-IN: it only runs when

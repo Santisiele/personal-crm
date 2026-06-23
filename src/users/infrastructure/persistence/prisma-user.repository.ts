@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import { User, UserId } from '../../domain/user';
-import { UserRole } from '../../domain/user-role';
-import { UserRepository } from '../../domain/user.repository';
+import { User, UserId } from '@/users/domain/user';
+import { UserRole } from '@/users/domain/user-role';
+import { UserRepository } from '@/users/domain/user.repository';
 
 /**
  * Prisma-backed driven adapter implementing the UserRepository port.

@@ -1,11 +1,11 @@
 import { loadFeature, defineFeature } from 'jest-cucumber';
-import { UserRole } from '../../users/domain/user-role';
-import { Actor } from '../../shared/domain/actor';
-import { Task } from '../domain/task';
-import { AccessDeniedError } from '../domain/access-denied.error';
-import { ViewTask } from '../application/view-task.use-case';
-import { ReassignTask } from '../application/reassign-task.use-case';
-import { InMemoryTaskRepository } from '../infrastructure/persistence/in-memory-task.repository';
+import { UserRole } from '@/users/domain/user-role';
+import { Actor } from '@/shared/domain/actor';
+import { Task } from '@/tasks/domain/task';
+import { AccessDeniedError } from '@/tasks/domain/access-denied.error';
+import { ViewTask } from '@/tasks/application/view-task.use-case';
+import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
+import { InMemoryTaskRepository } from '@/tasks/infrastructure/persistence/in-memory-task.repository';
 
 const feature = loadFeature('specs/user_permissions.feature', { errors: false });
 

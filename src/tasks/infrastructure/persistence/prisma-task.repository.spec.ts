@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaTaskRepository } from './prisma-task.repository';
+import { PrismaTaskRepository } from '@/tasks/infrastructure/persistence/prisma-task.repository';
 
 /**
  * Integration test for the Prisma adapter. It is OPT-IN: it only runs when

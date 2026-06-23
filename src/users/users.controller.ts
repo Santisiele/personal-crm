@@ -7,14 +7,14 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { CurrentActor } from '../auth/current-actor.decorator';
-import type { Actor } from '../shared/domain/actor';
-import { CreateUser } from './application/create-user.use-case';
-import { ChangePassword } from './application/change-password.use-case';
-import { ChangeUserRole } from './application/change-user-role.use-case';
-import { CreateUserDto } from './dto/create-user.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { ChangeUserRoleDto } from './dto/change-user-role.dto';
+import { CurrentActor } from '@/auth/current-actor.decorator';
+import type { Actor } from '@/shared/domain/actor';
+import { CreateUser } from '@/users/application/create-user.use-case';
+import { ChangePassword } from '@/users/application/change-password.use-case';
+import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
+import { CreateUserDto } from '@/users/dto/create-user.dto';
+import { ChangePasswordDto } from '@/users/dto/change-password.dto';
+import { ChangeUserRoleDto } from '@/users/dto/change-user-role.dto';
 
 @Controller('users')
 export class UsersController {

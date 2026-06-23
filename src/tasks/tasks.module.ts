@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { TasksController } from './tasks.controller';
-import { TASK_REPOSITORY, TaskRepository } from './domain/task.repository';
-import { PrismaTaskRepository } from './infrastructure/persistence/prisma-task.repository';
-import { ViewTask } from './application/view-task.use-case';
-import { ReassignTask } from './application/reassign-task.use-case';
+import { PrismaService } from '@/prisma/prisma.service';
+import { TasksController } from '@/tasks/tasks.controller';
+import {
+  TASK_REPOSITORY,
+  TaskRepository,
+} from '@/tasks/domain/task.repository';
+import { PrismaTaskRepository } from '@/tasks/infrastructure/persistence/prisma-task.repository';
+import { ViewTask } from '@/tasks/application/view-task.use-case';
+import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
 
 /**
  * Composition root for the tasks context. Binds the TaskRepository port to its

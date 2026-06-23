@@ -1,7 +1,7 @@
-import { UserId } from '../domain/user';
-import { UserRole } from '../domain/user-role';
-import { UserRepository } from '../domain/user.repository';
-import { UserNotFoundError } from '../domain/user-not-found.error';
+import { UserId } from '@/users/domain/user';
+import { UserRole } from '@/users/domain/user-role';
+import { UserRepository } from '@/users/domain/user.repository';
+import { UserNotFoundError } from '@/users/domain/user-not-found.error';
 
 export interface ChangeUserRoleCommand {
   userId: UserId;

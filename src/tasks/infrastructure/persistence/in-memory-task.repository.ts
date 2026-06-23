@@ -1,5 +1,5 @@
-import { Task, TaskId } from '../../domain/task';
-import { TaskRepository } from '../../domain/task.repository';
+import { Task, TaskId } from '@/tasks/domain/task';
+import { TaskRepository } from '@/tasks/domain/task.repository';
 
 /**
  * In-memory driven adapter for tasks. Used in acceptance/unit tests and local

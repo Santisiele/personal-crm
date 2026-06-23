@@ -7,11 +7,11 @@ import {
   Param,
   Patch,
 } from '@nestjs/common';
-import { CurrentActor } from '../auth/current-actor.decorator';
-import type { Actor } from '../shared/domain/actor';
-import { ViewTask } from './application/view-task.use-case';
-import { ReassignTask } from './application/reassign-task.use-case';
-import { ReassignTaskDto } from './dto/reassign-task.dto';
+import { CurrentActor } from '@/auth/current-actor.decorator';
+import type { Actor } from '@/shared/domain/actor';
+import { ViewTask } from '@/tasks/application/view-task.use-case';
+import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
+import { ReassignTaskDto } from '@/tasks/dto/reassign-task.dto';
 
 @Controller('tasks')
 export class TasksController {

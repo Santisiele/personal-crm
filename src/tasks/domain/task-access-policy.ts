@@ -1,6 +1,6 @@
-import { UserRole } from '../../users/domain/user-role';
-import { Actor } from '../../shared/domain/actor';
-import { Task } from './task';
+import { UserRole } from '@/users/domain/user-role';
+import { Actor } from '@/shared/domain/actor';
+import { Task } from '@/tasks/domain/task';
 
 /**
  * Domain service holding the authorization rules for tasks. Pure logic, free of

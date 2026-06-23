@@ -1,4 +1,4 @@
-import { Task, TaskId } from './task';
+import { Task, TaskId } from '@/tasks/domain/task';
 
 /**
  * Driven port for task persistence. Implemented by adapters (in-memory,

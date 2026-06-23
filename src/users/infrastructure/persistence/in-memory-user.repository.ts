@@ -1,5 +1,5 @@
-import { User, UserId } from '../../domain/user';
-import { UserRepository } from '../../domain/user.repository';
+import { User, UserId } from '@/users/domain/user';
+import { UserRepository } from '@/users/domain/user.repository';
 
 /**
  * In-memory driven adapter. Used as a fast, dependency-free substitute for the

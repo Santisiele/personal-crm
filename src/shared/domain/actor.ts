@@ -1,4 +1,4 @@
-import { UserRole } from '../../users/domain/user-role';
+import { UserRole } from '@/users/domain/user-role';
 
 /**
  * The authenticated principal performing an action. UserRole is treated as a

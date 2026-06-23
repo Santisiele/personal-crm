@@ -1,7 +1,7 @@
-import { PasswordHasher } from '../domain/password-hasher';
-import { User } from '../domain/user';
-import { UserRole } from '../domain/user-role';
-import { UserRepository } from '../domain/user.repository';
+import { PasswordHasher } from '@/users/domain/password-hasher';
+import { User } from '@/users/domain/user';
+import { UserRole } from '@/users/domain/user-role';
+import { UserRepository } from '@/users/domain/user.repository';
 
 export interface CreateUserCommand {
   name: string;

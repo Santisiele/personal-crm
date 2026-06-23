@@ -1,6 +1,6 @@
 import { randomBytes, scrypt, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
-import { PasswordHasher } from '../../domain/password-hasher';
+import { PasswordHasher } from '@/users/domain/password-hasher';
 
 const scryptAsync = promisify(scrypt);
 const SALT_BYTES = 16;

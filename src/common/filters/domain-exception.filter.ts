@@ -8,7 +8,7 @@ import {
   AuthorizationError,
   DomainError,
   NotFoundError,
-} from '../../shared/domain/domain-error';
+} from '@/shared/domain/domain-error';
 
 /**
  * Translates domain errors into HTTP responses at the delivery boundary, so

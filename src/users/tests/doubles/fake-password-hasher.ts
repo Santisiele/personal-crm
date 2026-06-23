@@ -1,4 +1,4 @@
-import { PasswordHasher } from '../../domain/password-hasher';
+import { PasswordHasher } from '@/users/domain/password-hasher';
 
 /**
  * Deterministic test double. Models hashing as a reversible prefix so tests can

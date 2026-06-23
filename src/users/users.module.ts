@@ -1,14 +1,17 @@
 import { Module } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { UsersController } from './users.controller';
-import { USER_REPOSITORY } from './domain/user.repository';
-import { PASSWORD_HASHER, PasswordHasher } from './domain/password-hasher';
-import { UserRepository } from './domain/user.repository';
-import { PrismaUserRepository } from './infrastructure/persistence/prisma-user.repository';
-import { ScryptPasswordHasher } from './infrastructure/hashing/scrypt-password-hasher';
-import { CreateUser } from './application/create-user.use-case';
-import { ChangePassword } from './application/change-password.use-case';
-import { ChangeUserRole } from './application/change-user-role.use-case';
+import { PrismaService } from '@/prisma/prisma.service';
+import { UsersController } from '@/users/users.controller';
+import { USER_REPOSITORY } from '@/users/domain/user.repository';
+import {
+  PASSWORD_HASHER,
+  PasswordHasher,
+} from '@/users/domain/password-hasher';
+import { UserRepository } from '@/users/domain/user.repository';
+import { PrismaUserRepository } from '@/users/infrastructure/persistence/prisma-user.repository';
+import { ScryptPasswordHasher } from '@/users/infrastructure/hashing/scrypt-password-hasher';
+import { CreateUser } from '@/users/application/create-user.use-case';
+import { ChangePassword } from '@/users/application/change-password.use-case';
+import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
 
 /**
  * Composition root for the users context. Binds the driven ports to their

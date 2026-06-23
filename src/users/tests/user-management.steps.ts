@@ -1,11 +1,11 @@
 import { loadFeature, defineFeature } from 'jest-cucumber';
-import { UserRole } from '../domain/user-role';
-import { User } from '../domain/user';
-import { CreateUser } from '../application/create-user.use-case';
-import { ChangePassword } from '../application/change-password.use-case';
-import { ChangeUserRole } from '../application/change-user-role.use-case';
-import { InMemoryUserRepository } from '../infrastructure/persistence/in-memory-user.repository';
-import { FakePasswordHasher } from './doubles/fake-password-hasher';
+import { UserRole } from '@/users/domain/user-role';
+import { User } from '@/users/domain/user';
+import { CreateUser } from '@/users/application/create-user.use-case';
+import { ChangePassword } from '@/users/application/change-password.use-case';
+import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
+import { InMemoryUserRepository } from '@/users/infrastructure/persistence/in-memory-user.repository';
+import { FakePasswordHasher } from '@/users/tests/doubles/fake-password-hasher';
 
 const feature = loadFeature('specs/user_managment.feature', { errors: false });
 

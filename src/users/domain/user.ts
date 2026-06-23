@@ -1,4 +1,4 @@
-import { UserRole } from './user-role';
+import { UserRole } from '@/users/domain/user-role';
 
 export type UserId = string;
 

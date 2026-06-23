@@ -1,4 +1,4 @@
-import { User, UserId } from './user';
+import { User, UserId } from '@/users/domain/user';
 
 /**
  * Driven port: the application depends on this abstraction, never on a concrete

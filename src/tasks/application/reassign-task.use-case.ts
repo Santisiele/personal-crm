@@ -1,9 +1,9 @@
-import { Actor } from '../../shared/domain/actor';
-import { AccessDeniedError } from '../domain/access-denied.error';
-import { TaskId } from '../domain/task';
-import { TaskAccessPolicy } from '../domain/task-access-policy';
-import { TaskNotFoundError } from '../domain/task-not-found.error';
-import { TaskRepository } from '../domain/task.repository';
+import { Actor } from '@/shared/domain/actor';
+import { AccessDeniedError } from '@/tasks/domain/access-denied.error';
+import { TaskId } from '@/tasks/domain/task';
+import { TaskAccessPolicy } from '@/tasks/domain/task-access-policy';
+import { TaskNotFoundError } from '@/tasks/domain/task-not-found.error';
+import { TaskRepository } from '@/tasks/domain/task.repository';
 
 export interface ReassignTaskCommand {
   actor: Actor;

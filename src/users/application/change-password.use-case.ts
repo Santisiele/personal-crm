@@ -1,7 +1,7 @@
-import { PasswordHasher } from '../domain/password-hasher';
-import { UserId } from '../domain/user';
-import { UserNotFoundError } from '../domain/user-not-found.error';
-import { UserRepository } from '../domain/user.repository';
+import { PasswordHasher } from '@/users/domain/password-hasher';
+import { UserId } from '@/users/domain/user';
+import { UserNotFoundError } from '@/users/domain/user-not-found.error';
+import { UserRepository } from '@/users/domain/user.repository';
 
 export interface ChangePasswordCommand {
   userId: UserId;

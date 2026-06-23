@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { Task, TaskId } from '../../domain/task';
-import { TaskRepository } from '../../domain/task.repository';
+import { Task, TaskId } from '@/tasks/domain/task';
+import { TaskRepository } from '@/tasks/domain/task.repository';
 
 /**
  * Prisma-backed driven adapter implementing the TaskRepository port.

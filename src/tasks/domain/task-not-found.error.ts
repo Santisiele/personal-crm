@@ -1,5 +1,5 @@
-import { NotFoundError } from '../../shared/domain/domain-error';
-import { TaskId } from './task';
+import { NotFoundError } from '@/shared/domain/domain-error';
+import { TaskId } from '@/tasks/domain/task';
 
 export class TaskNotFoundError extends NotFoundError {
   constructor(taskId: TaskId) {
