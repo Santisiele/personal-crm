@@ -5,7 +5,6 @@ import { CreateUser } from '../application/create-user.use-case';
 import { ChangePassword } from '../application/change-password.use-case';
 import { ChangeUserRole } from '../application/change-user-role.use-case';
 import { InMemoryUserRepository } from '../infrastructure/persistence/in-memory-user.repository';
-import { SequentialIdGenerator } from './doubles/sequential-id-generator';
 import { FakePasswordHasher } from './doubles/fake-password-hasher';
 
 const feature = loadFeature('specs/user_managment.feature', { errors: false });
@@ -22,7 +21,7 @@ defineFeature(feature, (test) => {
   beforeEach(() => {
     users = new InMemoryUserRepository();
     hasher = new FakePasswordHasher();
-    createUser = new CreateUser(users, new SequentialIdGenerator(), hasher);
+    createUser = new CreateUser(users, hasher);
     changePassword = new ChangePassword(users, hasher);
     changeUserRole = new ChangeUserRole(users);
   });
