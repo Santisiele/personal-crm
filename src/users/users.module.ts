@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersController } from './users.controller';
 import { USER_REPOSITORY } from './domain/user.repository';
 import { PASSWORD_HASHER, PasswordHasher } from './domain/password-hasher';
 import { UserRepository } from './domain/user.repository';
@@ -43,6 +44,7 @@ import { ChangeUserRole } from './application/change-user-role.use-case';
       inject: [USER_REPOSITORY],
     },
   ],
+  controllers: [UsersController],
   exports: [CreateUser, ChangePassword, ChangeUserRole],
 })
 export class UsersModule {}
