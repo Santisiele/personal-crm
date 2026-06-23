@@ -2,18 +2,12 @@ import { Actor } from '../domain/actor';
 import { AccessDeniedError } from '../domain/access-denied.error';
 import { Task, TaskId } from '../domain/task';
 import { TaskAccessPolicy } from '../domain/task-access-policy';
+import { TaskNotFoundError } from '../domain/task-not-found.error';
 import { TaskRepository } from '../domain/task.repository';
 
 export interface ViewTaskQuery {
   actor: Actor;
   taskId: TaskId;
-}
-
-export class TaskNotFoundError extends Error {
-  constructor(taskId: TaskId) {
-    super(`Task ${taskId} not found`);
-    this.name = 'TaskNotFoundError';
-  }
 }
 
 /**

@@ -13,6 +13,10 @@ export class TaskAccessPolicy {
     return this.isPrivileged(actor) || this.owns(actor, task);
   }
 
+  canReassign(actor: Actor, task: Task): boolean {
+    return this.owns(actor, task);
+  }
+
   private isPrivileged(actor: Actor): boolean {
     return TaskAccessPolicy.PRIVILEGED_ROLES.includes(actor.role);
   }

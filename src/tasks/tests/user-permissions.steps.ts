@@ -4,15 +4,18 @@ import { Actor } from '../domain/actor';
 import { Task } from '../domain/task';
 import { AccessDeniedError } from '../domain/access-denied.error';
 import { ViewTask } from '../application/view-task.use-case';
+import { ReassignTask } from '../application/reassign-task.use-case';
 import { InMemoryTaskRepository } from '../infrastructure/persistence/in-memory-task.repository';
 
 const feature = loadFeature('specs/user_permissions.feature', { errors: false });
 
 const ANOTHER_USER_ID = 'another-user';
+const NEW_ASSIGNEE_ID = 'new-assignee';
 
 defineFeature(feature, (test) => {
   let tasks: InMemoryTaskRepository;
   let viewTask: ViewTask;
+  let reassignTask: ReassignTask;
   let actor: Actor;
   let task: Task;
   let accessGranted: boolean;
@@ -20,6 +23,7 @@ defineFeature(feature, (test) => {
   beforeEach(() => {
     tasks = new InMemoryTaskRepository();
     viewTask = new ViewTask(tasks);
+    reassignTask = new ReassignTask(tasks);
   });
 
   const authenticatedAs = (given: any, phrase: string, role: UserRole, id: string) =>
@@ -88,6 +92,42 @@ defineFeature(feature, (test) => {
     authenticatedAs(given, 'a user is authenticated', UserRole.USER, 'user-1');
     aTaskBelongsToAnotherUser(and);
     requestsTheTask(when);
+    accessIsDenied(then);
+  });
+
+  const attemptsToReassign = (when: any, phrase: string) =>
+    when(phrase, async () => {
+      try {
+        await reassignTask.execute({
+          actor,
+          taskId: task.id,
+          newAssigneeId: NEW_ASSIGNEE_ID,
+        });
+        accessGranted = true;
+      } catch (error) {
+        if (error instanceof AccessDeniedError) {
+          accessGranted = false;
+        } else {
+          throw error;
+        }
+      }
+    });
+
+  test('User can reassign own task', ({ given, and, when, then }) => {
+    authenticatedAs(given, 'a user is authenticated', UserRole.USER, 'user-1');
+    theTaskBelongsToThatUser(and);
+    attemptsToReassign(when, 'reassigns the task');
+    then('the reassignment is successful', async () => {
+      expect(accessGranted).toBe(true);
+      const stored = await tasks.findById(task.id);
+      expect(stored!.assigneeId).toBe(NEW_ASSIGNEE_ID);
+    });
+  });
+
+  test("User cannot reassign another user's task", ({ given, and, when, then }) => {
+    authenticatedAs(given, 'a user is authenticated', UserRole.USER, 'user-1');
+    aTaskBelongsToAnotherUser(and);
+    attemptsToReassign(when, 'attempts to reassign the task');
     accessIsDenied(then);
   });
 });
