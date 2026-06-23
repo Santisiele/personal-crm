@@ -11,9 +11,23 @@ export class User {
     public readonly id: UserId,
     public readonly name: string,
     public readonly role: UserRole,
+    private _passwordHash: string,
   ) {}
 
-  static create(props: { id: UserId; name: string; role: UserRole }): User {
-    return new User(props.id, props.name, props.role);
+  static create(props: {
+    id: UserId;
+    name: string;
+    role: UserRole;
+    passwordHash: string;
+  }): User {
+    return new User(props.id, props.name, props.role, props.passwordHash);
+  }
+
+  get passwordHash(): string {
+    return this._passwordHash;
+  }
+
+  changePassword(newPasswordHash: string): void {
+    this._passwordHash = newPasswordHash;
   }
 }
