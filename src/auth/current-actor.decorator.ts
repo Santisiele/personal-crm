@@ -4,7 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { UserRole } from '../users/domain/user-role';
-import { Actor } from '../tasks/domain/actor';
+import { Actor } from '../shared/domain/actor';
 
 /**
  * Resolves the authenticated principal for a request.

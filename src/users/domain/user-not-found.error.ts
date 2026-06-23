@@ -1,8 +1,8 @@
+import { NotFoundError } from '../../shared/domain/domain-error';
 import { UserId } from './user';
 
-export class UserNotFoundError extends Error {
+export class UserNotFoundError extends NotFoundError {
   constructor(userId: UserId) {
     super(`User ${userId} not found`);
-    this.name = 'UserNotFoundError';
   }
 }

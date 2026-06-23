@@ -1,6 +1,6 @@
 import { loadFeature, defineFeature } from 'jest-cucumber';
 import { UserRole } from '../../users/domain/user-role';
-import { Actor } from '../domain/actor';
+import { Actor } from '../../shared/domain/actor';
 import { Task } from '../domain/task';
 import { AccessDeniedError } from '../domain/access-denied.error';
 import { ViewTask } from '../application/view-task.use-case';

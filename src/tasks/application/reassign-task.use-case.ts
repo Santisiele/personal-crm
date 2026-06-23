@@ -1,4 +1,4 @@
-import { Actor } from '../domain/actor';
+import { Actor } from '../../shared/domain/actor';
 import { AccessDeniedError } from '../domain/access-denied.error';
 import { TaskId } from '../domain/task';
 import { TaskAccessPolicy } from '../domain/task-access-policy';

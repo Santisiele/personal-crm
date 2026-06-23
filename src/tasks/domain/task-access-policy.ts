@@ -1,5 +1,5 @@
 import { UserRole } from '../../users/domain/user-role';
-import { Actor } from './actor';
+import { Actor } from '../../shared/domain/actor';
 import { Task } from './task';
 
 /**
