@@ -1,0 +1,4 @@
+{
+  "recommendations": ["alexkrechik.cucumberautocomplete"],
+  "unwantedRecommendations": ["cucumberopen.cucumber-official-vscode-plugin"]
+}

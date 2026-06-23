@@ -1,0 +1,8 @@
+{
+  "//": "Steps are jest-cucumber (lowercase given/when/then inside defineFeature), not cucumber-js. The official Cucumber extension cannot parse them and reports false 'undefined step' diagnostics; disable it for this workspace. cucumberautocomplete understands this layout.",
+  "cucumberautocomplete.steps": ["src/**/tests/*.steps.ts"],
+  "cucumberautocomplete.syncfeatures": "specs/**/*.feature",
+  "cucumberautocomplete.strictGherkinCompletion": false,
+  "cucumberautocomplete.smartSnippets": true,
+  "cucumberautocomplete.gherkinDefinitionPart": "(given|when|then|and|but)\\("
+}
