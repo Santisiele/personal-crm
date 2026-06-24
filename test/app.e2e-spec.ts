@@ -14,11 +14,28 @@ describe('App (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
 
-  // Rows we create and must remove from the shared dev DB afterwards.
-  let userId: string;
+  // Users we create through the API; tracked so we can remove them afterwards.
+  let ownerId: string;
+  let otherId: string;
+  let adminId: string;
+
+  // Lookup rows we may have to seed, and tasks we create — all cleaned up.
   let seededTaskStatusId: bigint | null = null;
   let seededAssignmentStatusId: bigint | null = null;
   const createdTaskIds: bigint[] = [];
+
+  const actor = (id: string, role: string) => ({
+    'x-user-id': id,
+    'x-user-role': role,
+  });
+
+  const createUser = async (name: string, role: string): Promise<string> => {
+    const res = await request(app.getHttpServer())
+      .post('/users')
+      .send({ name, role, password: 'secret-password' })
+      .expect(201);
+    return (res.body as { id: string }).id;
+  };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -44,12 +61,9 @@ describe('App (e2e)', () => {
       seededAssignmentStatusId = status.id;
     }
 
-    // Create the acting user through the real HTTP API.
-    const res = await request(app.getHttpServer())
-      .post('/users')
-      .send({ name: 'E2E Actor', role: 'USER', password: 'secret-password' })
-      .expect(201);
-    userId = (res.body as { id: string }).id;
+    ownerId = await createUser('E2E Owner', 'USER');
+    otherId = await createUser('E2E Other', 'USER');
+    adminId = await createUser('E2E Admin', 'ADMIN');
   });
 
   afterAll(async () => {
@@ -59,8 +73,11 @@ describe('App (e2e)', () => {
       });
       await prisma.task.deleteMany({ where: { id: { in: createdTaskIds } } });
     }
-    if (userId) {
-      await prisma.app_user.deleteMany({ where: { id: BigInt(userId) } });
+    const userIds = [ownerId, otherId, adminId]
+      .filter(Boolean)
+      .map((id) => BigInt(id));
+    if (userIds.length > 0) {
+      await prisma.app_user.deleteMany({ where: { id: { in: userIds } } });
     }
     if (seededTaskStatusId) {
       await prisma.task_status.deleteMany({
@@ -75,6 +92,16 @@ describe('App (e2e)', () => {
     await app.close();
   });
 
+  // Captures a created task id for cleanup and returns the response body.
+  const recordTask = (body: {
+    id: string;
+    ownerId: string;
+    assigneeId: string | null;
+  }) => {
+    createdTaskIds.push(BigInt(body.id));
+    return body;
+  };
+
   it('GET / returns the health string', () => {
     return request(app.getHttpServer())
       .get('/')
@@ -82,28 +109,72 @@ describe('App (e2e)', () => {
       .expect('Hello World!');
   });
 
-  it('creates a task for the acting user and reads it back', async () => {
-    const created = await request(app.getHttpServer())
-      .post('/tasks')
-      .set('x-user-id', userId)
-      .set('x-user-role', 'USER')
-      .send({ title: 'E2E task', description: 'created over HTTP' })
-      .expect(201);
+  describe('task creation', () => {
+    it('lets a user create a task for themselves and read it back', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/tasks')
+        .set(actor(ownerId, 'USER'))
+        .send({ title: 'E2E task', description: 'created over HTTP' })
+        .expect(201);
 
-    const body = created.body as {
-      id: string;
-      ownerId: string;
-      assigneeId: string;
-    };
-    expect(body.ownerId).toBe(userId);
-    expect(body.assigneeId).toBe(userId);
-    createdTaskIds.push(BigInt(body.id));
+      const body = recordTask(
+        created.body as { id: string; ownerId: string; assigneeId: string },
+      );
+      expect(body.ownerId).toBe(ownerId);
+      expect(body.assigneeId).toBe(ownerId);
 
-    await request(app.getHttpServer())
-      .get(`/tasks/${body.id}`)
-      .set('x-user-id', userId)
-      .set('x-user-role', 'USER')
-      .expect(200)
-      .expect({ id: body.id, ownerId: userId, assigneeId: userId });
+      await request(app.getHttpServer())
+        .get(`/tasks/${body.id}`)
+        .set(actor(ownerId, 'USER'))
+        .expect(200)
+        .expect({ id: body.id, ownerId, assigneeId: ownerId });
+    });
+
+    it('lets an admin create a task assigned to another user', async () => {
+      const created = await request(app.getHttpServer())
+        .post('/tasks')
+        .set(actor(adminId, 'ADMIN'))
+        .send({
+          title: 'Assigned by admin',
+          description: 'for another user',
+          assigneeId: otherId,
+        })
+        .expect(201);
+
+      const body = recordTask(
+        created.body as { id: string; ownerId: string; assigneeId: string },
+      );
+      expect(body.ownerId).toBe(adminId);
+      expect(body.assigneeId).toBe(otherId);
+    });
+
+    it('forbids a user from assigning a task to another user (403)', () => {
+      return request(app.getHttpServer())
+        .post('/tasks')
+        .set(actor(ownerId, 'USER'))
+        .send({
+          title: 'Should be denied',
+          description: 'user assigning to other',
+          assigneeId: otherId,
+        })
+        .expect(403);
+    });
+
+    it('rejects a task with a missing title (400)', () => {
+      return request(app.getHttpServer())
+        .post('/tasks')
+        .set(actor(ownerId, 'USER'))
+        .send({ description: 'no title' })
+        .expect(400);
+    });
+  });
+
+  describe('reading a task', () => {
+    it('returns 404 for a task that does not exist', () => {
+      return request(app.getHttpServer())
+        .get('/tasks/999999999999999')
+        .set(actor(ownerId, 'USER'))
+        .expect(404);
+    });
   });
 });
