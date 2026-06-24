@@ -9,6 +9,7 @@ import { PrismaTaskRepository } from '@/tasks/infrastructure/persistence/prisma-
 import { CreateTask } from '@/tasks/application/create-task.use-case';
 import { ViewTask } from '@/tasks/application/view-task.use-case';
 import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
+import { ArchiveTask } from '@/tasks/application/archive-task.use-case';
 
 /**
  * Composition root for the tasks context. Binds the TaskRepository port to its
@@ -37,8 +38,13 @@ import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
       useFactory: (tasks: TaskRepository) => new ReassignTask(tasks),
       inject: [TASK_REPOSITORY],
     },
+    {
+      provide: ArchiveTask,
+      useFactory: (tasks: TaskRepository) => new ArchiveTask(tasks),
+      inject: [TASK_REPOSITORY],
+    },
   ],
   controllers: [TasksController],
-  exports: [CreateTask, ViewTask, ReassignTask],
+  exports: [CreateTask, ViewTask, ReassignTask, ArchiveTask],
 })
 export class TasksModule {}

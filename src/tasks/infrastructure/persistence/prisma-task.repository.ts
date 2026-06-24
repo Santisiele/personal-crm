@@ -2,6 +2,10 @@ import { PrismaClient } from '@prisma/client';
 import { Task, TaskId } from '@/tasks/domain/task';
 import { TaskRepository } from '@/tasks/domain/task.repository';
 
+/** Lookup descriptions used to record a task's archival as an activity. */
+const ARCHIVED_ACTIVITY_STATUS = 'DELETED';
+const ARCHIVE_ACTION_TYPE = 'ARCHIVE';
+
 /**
  * Prisma-backed driven adapter implementing the TaskRepository port.
  *
@@ -38,8 +42,8 @@ export class PrismaTaskRepository implements TaskRepository {
   }
 
   async findById(id: TaskId): Promise<Task | null> {
-    const row = await this.prisma.task.findUnique({
-      where: { id: BigInt(id) },
+    const row = await this.prisma.task.findFirst({
+      where: { id: BigInt(id), deleted_at: null },
     });
     if (!row) {
       return null;
@@ -112,6 +116,53 @@ export class PrismaTaskRepository implements TaskRepository {
         status_id: await this.defaultAssignmentStatusId(),
       },
     });
+  }
+
+  async archive(id: TaskId, reason: string, archivedBy: string): Promise<void> {
+    const actor = BigInt(archivedBy);
+    await this.prisma.task.update({
+      where: { id: BigInt(id) },
+      data: { deleted_at: new Date(), deleted_by: actor },
+    });
+    // Record the archival (with its reason) as a task activity whose status
+    // marks it as a deletion, mirroring how the model tracks task follow-up.
+    await this.prisma.task_activity.create({
+      data: {
+        task_id: BigInt(id),
+        user_id: actor,
+        created_by: actor,
+        activity_date: new Date(),
+        description: reason,
+        status_id: await this.archivedActivityStatusId(),
+        action_type_id: await this.archiveActionTypeId(),
+      },
+    });
+  }
+
+  // The aggregate does not model activity statuses/types, so the archival lookup
+  // rows must be seeded; we fail loudly if they are missing.
+  private async archivedActivityStatusId(): Promise<bigint> {
+    const row = await this.prisma.activity_status.findFirst({
+      where: { description: ARCHIVED_ACTIVITY_STATUS },
+    });
+    if (!row) {
+      throw new Error(
+        `No activity_status '${ARCHIVED_ACTIVITY_STATUS}' found; cannot record the archival`,
+      );
+    }
+    return row.id;
+  }
+
+  private async archiveActionTypeId(): Promise<bigint> {
+    const row = await this.prisma.action_type.findFirst({
+      where: { description: ARCHIVE_ACTION_TYPE },
+    });
+    if (!row) {
+      throw new Error(
+        `No action_type '${ARCHIVE_ACTION_TYPE}' found; cannot record the archival`,
+      );
+    }
+    return row.id;
   }
 
   private currentAssignment(taskId: TaskId) {

@@ -10,6 +10,7 @@ import { TaskRepository } from '@/tasks/domain/task.repository';
  */
 export class InMemoryTaskRepository implements TaskRepository {
   private readonly tasks = new Map<TaskId, Task>();
+  private readonly archived = new Set<TaskId>();
   private sequence = 0;
 
   save(task: Task): Promise<void> {
@@ -22,6 +23,16 @@ export class InMemoryTaskRepository implements TaskRepository {
   }
 
   findById(id: TaskId): Promise<Task | null> {
+    if (this.archived.has(id)) {
+      return Promise.resolve(null);
+    }
     return Promise.resolve(this.tasks.get(id) ?? null);
+  }
+
+  // The reason and actor are persistence detail the in-memory double does not
+  // model; archiving just makes the task disappear from reads (logical delete).
+  archive(id: TaskId): Promise<void> {
+    this.archived.add(id);
+    return Promise.resolve();
   }
 }

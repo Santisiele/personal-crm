@@ -17,6 +17,11 @@ export class TaskAccessPolicy {
     return this.owns(actor, task);
   }
 
+  /** The owner or a privileged actor may archive (logically delete) a task. */
+  canArchive(actor: Actor, task: Task): boolean {
+    return this.isPrivileged(actor) || this.owns(actor, task);
+  }
+
   /**
    * Anyone may create a task assigned to themselves; only privileged actors may
    * assign it to someone else or leave it unassigned (assigneeId === null).

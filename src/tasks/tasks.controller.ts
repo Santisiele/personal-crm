@@ -13,8 +13,10 @@ import type { Actor } from '@/shared/domain/actor';
 import { ViewTask } from '@/tasks/application/view-task.use-case';
 import { CreateTask } from '@/tasks/application/create-task.use-case';
 import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
+import { ArchiveTask } from '@/tasks/application/archive-task.use-case';
 import { CreateTaskDto } from '@/tasks/dto/create-task.dto';
 import { ReassignTaskDto } from '@/tasks/dto/reassign-task.dto';
+import { ArchiveTaskDto } from '@/tasks/dto/archive-task.dto';
 
 @Controller('tasks')
 export class TasksController {
@@ -22,6 +24,7 @@ export class TasksController {
     private readonly createTask: CreateTask,
     private readonly viewTask: ViewTask,
     private readonly reassignTask: ReassignTask,
+    private readonly archiveTask: ArchiveTask,
   ) {}
 
   @Post()
@@ -54,5 +57,15 @@ export class TasksController {
       taskId: id,
       newAssigneeId: body.newAssigneeId,
     });
+  }
+
+  @Post(':id/archive')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async archive(
+    @Param('id') id: string,
+    @Body() body: ArchiveTaskDto,
+    @CurrentActor() actor: Actor,
+  ): Promise<void> {
+    await this.archiveTask.execute({ actor, taskId: id, reason: body.reason });
   }
 }
