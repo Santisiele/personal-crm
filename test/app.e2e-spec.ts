@@ -177,4 +177,44 @@ describe('App (e2e)', () => {
         .expect(404);
     });
   });
+
+  describe('reassignment', () => {
+    const createOwnedTask = async (title: string): Promise<string> => {
+      const created = await request(app.getHttpServer())
+        .post('/tasks')
+        .set(actor(ownerId, 'USER'))
+        .send({ title, description: 'for reassignment' })
+        .expect(201);
+      const body = recordTask(
+        created.body as { id: string; ownerId: string; assigneeId: string },
+      );
+      return body.id;
+    };
+
+    it('lets the owner reassign their task and reflects it on read', async () => {
+      const taskId = await createOwnedTask('Owner reassigns');
+
+      await request(app.getHttpServer())
+        .patch(`/tasks/${taskId}/assignee`)
+        .set(actor(ownerId, 'USER'))
+        .send({ newAssigneeId: otherId })
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get(`/tasks/${taskId}`)
+        .set(actor(ownerId, 'USER'))
+        .expect(200)
+        .expect({ id: taskId, ownerId, assigneeId: otherId });
+    });
+
+    it('forbids a non-owner from reassigning a task (403)', async () => {
+      const taskId = await createOwnedTask('Owner only');
+
+      await request(app.getHttpServer())
+        .patch(`/tasks/${taskId}/assignee`)
+        .set(actor(otherId, 'USER'))
+        .send({ newAssigneeId: adminId })
+        .expect(403);
+    });
+  });
 });
