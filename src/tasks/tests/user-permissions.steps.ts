@@ -1,4 +1,4 @@
-import { loadFeature, defineFeature } from 'jest-cucumber';
+import { loadFeature, defineFeature, DefineStepFunction } from 'jest-cucumber';
 import { UserRole } from '@/users/domain/user-role';
 import { Actor } from '@/shared/domain/actor';
 import { Task } from '@/tasks/domain/task';
@@ -29,28 +29,31 @@ defineFeature(feature, (test) => {
   });
 
   const authenticatedAs = (
-    given: any,
+    given: DefineStepFunction,
     phrase: string,
     role: UserRole,
     id: string,
-  ) =>
+  ) => {
     given(phrase, () => {
       actor = { id, role };
     });
+  };
 
-  const aTaskBelongsToAnotherUser = (and: any) =>
+  const aTaskBelongsToAnotherUser = (and: DefineStepFunction) => {
     and('a task belongs to another user', async () => {
       task = Task.rehydrate({ id: 'task-1', ownerId: ANOTHER_USER_ID });
       await tasks.save(task);
     });
+  };
 
-  const theTaskBelongsToThatUser = (and: any) =>
+  const theTaskBelongsToThatUser = (and: DefineStepFunction) => {
     and('the task belongs to that user', async () => {
       task = Task.rehydrate({ id: 'task-1', ownerId: actor.id });
       await tasks.save(task);
     });
+  };
 
-  const requestsTheTask = (when: any) =>
+  const requestsTheTask = (when: DefineStepFunction) => {
     when('requests the task', async () => {
       try {
         await viewTask.execute({ actor, taskId: task.id! });
@@ -63,16 +66,19 @@ defineFeature(feature, (test) => {
         }
       }
     });
+  };
 
-  const accessIsGranted = (then: any) =>
+  const accessIsGranted = (then: DefineStepFunction) => {
     then('access is granted', () => {
       expect(accessGranted).toBe(true);
     });
+  };
 
-  const accessIsDenied = (then: any) =>
+  const accessIsDenied = (then: DefineStepFunction) => {
     then('access is denied', () => {
       expect(accessGranted).toBe(false);
     });
+  };
 
   test('Administrator can view any task', ({ given, and, when, then }) => {
     authenticatedAs(
@@ -112,7 +118,7 @@ defineFeature(feature, (test) => {
     accessIsDenied(then);
   });
 
-  const attemptsToReassign = (when: any, phrase: string) =>
+  const attemptsToReassign = (when: DefineStepFunction, phrase: string) => {
     when(phrase, async () => {
       try {
         await reassignTask.execute({
@@ -129,6 +135,7 @@ defineFeature(feature, (test) => {
         }
       }
     });
+  };
 
   test('User can reassign own task', ({ given, and, when, then }) => {
     authenticatedAs(given, 'a user is authenticated', UserRole.USER, 'user-1');

@@ -1,4 +1,4 @@
-import { loadFeature, defineFeature } from 'jest-cucumber';
+import { loadFeature, defineFeature, DefineStepFunction } from 'jest-cucumber';
 import { UserRole } from '@/users/domain/user-role';
 import { Actor } from '@/shared/domain/actor';
 import { Task } from '@/tasks/domain/task';
@@ -30,14 +30,15 @@ defineFeature(feature, (test) => {
   });
 
   const authenticatedAs = (
-    given: any,
+    given: DefineStepFunction,
     phrase: string,
     role: UserRole,
     id: string,
-  ) =>
+  ) => {
     given(phrase, () => {
       actor = { id, role };
     });
+  };
 
   const attemptCreate = async (assigneeId: string | null | typeof OMITTED) => {
     try {
@@ -57,24 +58,28 @@ defineFeature(feature, (test) => {
   };
 
   const createsAssignedTo = (
-    when: any,
+    when: DefineStepFunction,
     phrase: string,
     assigneeId: string | null | typeof OMITTED,
-  ) => when(phrase, () => attemptCreate(assigneeId));
+  ) => {
+    when(phrase, () => attemptCreate(assigneeId));
+  };
 
-  const theTaskIsCreated = (then: any) =>
+  const theTaskIsCreated = (then: DefineStepFunction) => {
     then('the task is created', async () => {
       expect(created).not.toBeNull();
       expect(created!.id).not.toBeNull();
       const stored = await tasks.findById(created!.id as string);
       expect(stored).not.toBeNull();
     });
+  };
 
-  const theTaskIsNotCreated = (then: any) =>
+  const theTaskIsNotCreated = (then: DefineStepFunction) => {
     then('the task is not created', () => {
       expect(denied).toBe(true);
       expect(created).toBeNull();
     });
+  };
 
   test('User creates a task for themselves', ({ given, when, then, and }) => {
     authenticatedAs(given, 'a user is authenticated', UserRole.USER, 'user-1');
