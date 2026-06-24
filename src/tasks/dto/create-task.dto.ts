@@ -14,7 +14,9 @@ export class CreateTaskDto {
    * `null` to leave it unassigned (privileged actors only); pass a user id to
    * assign it to that user (privileged actors only, unless it is yourself).
    */
-  @ValidateIf((o) => o.assigneeId !== null && o.assigneeId !== undefined)
+  @ValidateIf(
+    (o: CreateTaskDto) => o.assigneeId !== null && o.assigneeId !== undefined,
+  )
   @IsString()
   @IsNotEmpty()
   readonly assigneeId?: string | null;
