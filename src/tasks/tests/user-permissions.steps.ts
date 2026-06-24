@@ -7,7 +7,9 @@ import { ViewTask } from '@/tasks/application/view-task.use-case';
 import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
 import { InMemoryTaskRepository } from '@/tasks/infrastructure/persistence/in-memory-task.repository';
 
-const feature = loadFeature('specs/user_permissions.feature', { errors: false });
+const feature = loadFeature('specs/user_permissions.feature', {
+  errors: false,
+});
 
 const ANOTHER_USER_ID = 'another-user';
 const NEW_ASSIGNEE_ID = 'new-assignee';
@@ -26,7 +28,12 @@ defineFeature(feature, (test) => {
     reassignTask = new ReassignTask(tasks);
   });
 
-  const authenticatedAs = (given: any, phrase: string, role: UserRole, id: string) =>
+  const authenticatedAs = (
+    given: any,
+    phrase: string,
+    role: UserRole,
+    id: string,
+  ) =>
     given(phrase, () => {
       actor = { id, role };
     });
@@ -68,14 +75,24 @@ defineFeature(feature, (test) => {
     });
 
   test('Administrator can view any task', ({ given, and, when, then }) => {
-    authenticatedAs(given, 'an administrator is authenticated', UserRole.ADMIN, 'admin-1');
+    authenticatedAs(
+      given,
+      'an administrator is authenticated',
+      UserRole.ADMIN,
+      'admin-1',
+    );
     aTaskBelongsToAnotherUser(and);
     requestsTheTask(when);
     accessIsGranted(then);
   });
 
   test('Creator can view any task', ({ given, and, when, then }) => {
-    authenticatedAs(given, 'a creator is authenticated', UserRole.CREATOR, 'creator-1');
+    authenticatedAs(
+      given,
+      'a creator is authenticated',
+      UserRole.CREATOR,
+      'creator-1',
+    );
     aTaskBelongsToAnotherUser(and);
     requestsTheTask(when);
     accessIsGranted(then);
@@ -124,7 +141,12 @@ defineFeature(feature, (test) => {
     });
   });
 
-  test("User cannot reassign another user's task", ({ given, and, when, then }) => {
+  test("User cannot reassign another user's task", ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
     authenticatedAs(given, 'a user is authenticated', UserRole.USER, 'user-1');
     aTaskBelongsToAnotherUser(and);
     attemptsToReassign(when, 'attempts to reassign the task');

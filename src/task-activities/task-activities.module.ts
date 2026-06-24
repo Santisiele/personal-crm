@@ -4,6 +4,6 @@ import { TaskActivitiesController } from '@/task-activities/task-activities.cont
 
 @Module({
   providers: [TaskActivitiesService],
-  controllers: [TaskActivitiesController]
+  controllers: [TaskActivitiesController],
 })
 export class TaskActivitiesModule {}

@@ -100,7 +100,9 @@ defineFeature(feature, (test) => {
 
     and('the old password should no longer be valid', async () => {
       const stored = await users.findById(createdUser.id!);
-      expect(await hasher.verify(oldPassword, stored!.passwordHash)).toBe(false);
+      expect(await hasher.verify(oldPassword, stored!.passwordHash)).toBe(
+        false,
+      );
     });
   });
 
