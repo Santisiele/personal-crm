@@ -402,6 +402,16 @@ describe('App (e2e)', () => {
       });
       expect(updated.user_role.description).toBe('ADMIN');
     });
+
+    it('rejects creating a user whose name is already taken (409)', async () => {
+      const name = `E2E Dup ${RUN}`;
+      await createUser(name, 'USER');
+
+      await request(app.getHttpServer())
+        .post('/users')
+        .send({ name, role: 'USER', password: 'secret-password' })
+        .expect(409);
+    });
   });
 
   describe('contacts and companies', () => {
