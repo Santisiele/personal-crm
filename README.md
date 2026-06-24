@@ -58,15 +58,17 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
   - `PATCH /users/:id/role` — cambiar el rol.
 
 ### Contexto `tasks` (`src/tasks`)
-- **Dominio**: `Task` lleva `id` (lo asigna el repositorio en el primer `save`; antes es `null`), `ownerId`, `assigneeId` (puede ser `null` = sin asignar), `title` y `description`. **No modela** historial de asignaciones ni estados. `TaskAccessPolicy` (domain service) con `canView` (privilegiado o dueño), `canReassign` (solo dueño), `canAssignTo` (uno mismo, o privilegiado para asignar a otro / dejar sin asignar) y `canArchive` (dueño o privilegiado).
-- **Puertos**: `TaskRepository` (incluye `archive`).
-- **Casos de uso**: `CreateTask`, `ViewTask`, `ReassignTask`, `ArchiveTask`.
-- **Adaptadores**: `InMemoryTaskRepository` (asigna identidad con un contador), `PrismaTaskRepository`.
+- **Dominio**: `Task` lleva `id` (lo asigna el repositorio en el primer `save`; antes es `null`), `ownerId`, `assigneeId` (puede ser `null` = sin asignar), `title`, `description`, `dueDate` (fecha ISO `YYYY-MM-DD` o `null`), `companyId` (id de empresa o `null`) y `status` (enum `TaskStatus`: `PENDING` | `IN_PROGRESS` | `DONE`; default `PENDING` al crear). `changeStatus` transiciona el estado. **No modela** historial de asignaciones. `TaskStatus` vive en `domain/task-status.ts` (sus valores matchean las descripciones de `task_status`). `TaskAccessPolicy` (domain service) con `canView` (privilegiado o dueño), `canReassign` (solo dueño), `canChangeStatus` (dueño, asignado o privilegiado), `isVisibleInList` (dueño, asignado o privilegiado — para el listado), `canAssignTo` (uno mismo, o privilegiado para asignar a otro / dejar sin asignar) y `canArchive` (dueño o privilegiado).
+- **Puertos**: `TaskRepository` (incluye `findById`, `updateStatus`, `findAll(filter?)` y `archive`). `TaskListFilter` = `{ assigneeId?, companyId? }`.
+- **Casos de uso**: `CreateTask`, `ViewTask`, `ReassignTask`, `ArchiveTask`, `ChangeTaskStatus`, `ListTasks`.
+- **Adaptadores**: `InMemoryTaskRepository` (asigna identidad con un contador), `PrismaTaskRepository`. El adaptador Prisma mapea `dueDate ↔ task.due_date`, `companyId ↔ task.company_id` (nullable) y `status ↔ task.status_id` resuelto por `task_status.description` (con fallback al status de menor id si la descripción no está seedeada). `findAll` filtra `deleted_at: null` + `company_id` en SQL y el `assigneeId` sobre el read model (vive en `task_assignment`).
 - **Endpoints** (`TasksController`):
-  - `POST /tasks` — crear tarea (`CreateTaskDto`: `title`, `description`, `assigneeId?`). Omitir `assigneeId` → para uno mismo; `null` → sin asignar (solo privilegiados); un id → a ese usuario (solo privilegiados, salvo que sea uno mismo).
-  - `GET /tasks/:id` — ver tarea (autorizado por rol/ownership).
+  - `POST /tasks` — crear tarea (`CreateTaskDto`: `title`, `description`, `assigneeId?`, `dueDate?`, `companyId?`). Omitir `assigneeId` → para uno mismo; `null` → sin asignar (solo privilegiados); un id → a ese usuario (solo privilegiados, salvo que sea uno mismo). `dueDate` se valida como fecha ISO; `companyId` se guarda tal cual (no se valida contra el contexto `companies`). Devuelve también `dueDate`, `companyId` y `status`.
+  - `GET /tasks` — listar las tareas visibles del actor (dueño o asignado; privilegiados ven todas), excluyendo archivadas. Filtros opcionales `?assigneeId=` y `?companyId=` (`ListTasksQueryDto`).
+  - `GET /tasks/:id` — ver tarea (autorizado por rol/ownership). Devuelve `dueDate`, `companyId` y `status`.
   - `PATCH /tasks/:id/assignee` — reasignar (`ReassignTaskDto`, solo el dueño).
-  - `POST /tasks/:id/archive` — archivar (borrado lógico, `ArchiveTaskDto`: `reason`). Setea `deleted_at`/`deleted_by` y registra la razón como un `task_activity` cuyo `activity_status` ('DELETED') la marca como borrado. La tarea archivada **deja de aparecer** en `findById` (ver/reasignar dan 404). Dueño o privilegiado.
+  - `PATCH /tasks/:id/status` — transicionar el estado (`ChangeTaskStatusDto`: `status` ∈ `TaskStatus`). Dueño, asignado o privilegiado; 404 si no existe/archivada, 403 si no autorizado.
+  - `POST /tasks/:id/archive` — archivar (borrado lógico, `ArchiveTaskDto`: `reason`). Setea `deleted_at`/`deleted_by` y registra la razón como un `task_activity` cuyo `activity_status` ('DELETED') la marca como borrado. La tarea archivada **deja de aparecer** en `findById`/`findAll` (ver/reasignar/cambiar estado/listar la omiten). Dueño o privilegiado.
 
 ### Contexto `contacts` (`src/contacts`)
 - **Dominio**: `Contact` (id repo-asignado; `contactName`, `email?`, `birth?` como fecha ISO `YYYY-MM-DD`). `ContactNotFoundError`.
@@ -155,7 +157,7 @@ pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 
 - **Login identifier**: hoy se entra por `name` (ya único). Un `email`/`username` dedicado sería más amigable que el nombre de la persona, pero funciona. Setear `JWT_SECRET` en cualquier entorno real (el fallback es solo para dev).
 - **DB sin migraciones versionadas**: el índice único `app_user_name_key` se aplicó a mano sobre la dev DB para matchear el `@unique` del schema. Si en algún momento se adopta `prisma migrate`, formalizarlo.
-- **`Task.status` en el dominio**: hoy la creación usa el `task_status` de menor id como default; cuando el flujo de estados importe, modelarlo en el agregado en vez de inferirlo en el adaptador.
+- **`Task.status` en el dominio** (implementado): el agregado modela `status` (`TaskStatus`: `PENDING` | `IN_PROGRESS` | `DONE`), default `PENDING` al crear, y se transiciona vía `PATCH /tasks/:id/status`. El adaptador Prisma resuelve `task_status` por descripción (fallback al de menor id si la descripción no está seedeada), así que conviene seedear las descripciones `PENDING`/`IN_PROGRESS`/`DONE` para que el flujo persista el estado correcto.
 - **e2e**: cubre `GET /`, tareas (crear/ver/reasignar/archivar con sus 200/201/204/400/403/404), `users` (password/rol), `contacts`, `companies` y el vínculo contacto↔empresa. Todo contra la DB real y self-cleaning.
 - **Lookups del archivado**: el adaptador resuelve `activity_status='DELETED'` y `action_type='ARCHIVE'` por descripción y falla si faltan (hay que seedearlos). Cuando se modele `task_activity` en serio, formalizar estos lookups.
 - Contexto scaffolding vacío: `task-assignments` (historial de asignaciones).
