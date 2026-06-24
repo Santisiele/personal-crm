@@ -9,7 +9,7 @@ import type { Request } from 'express';
 import { Actor } from '@/shared/domain/actor';
 import { UserRole } from '@/users/domain/user-role';
 import { IS_PUBLIC_KEY } from '@/auth/public.decorator';
-import { TOKEN_ISSUER, TokenIssuer } from '@/auth/token-issuer';
+import { TOKEN_ISSUER, type TokenIssuer } from '@/auth/token-issuer';
 import { InvalidTokenError } from '@/auth/invalid-token.error';
 
 /**
