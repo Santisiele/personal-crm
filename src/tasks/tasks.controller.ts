@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CurrentActor } from '@/auth/current-actor.decorator';
 import type { Actor } from '@/shared/domain/actor';
@@ -16,7 +17,9 @@ import { CreateTask } from '@/tasks/application/create-task.use-case';
 import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
 import { ArchiveTask } from '@/tasks/application/archive-task.use-case';
 import { ChangeTaskStatus } from '@/tasks/application/change-task-status.use-case';
+import { ListTasks } from '@/tasks/application/list-tasks.use-case';
 import { CreateTaskDto } from '@/tasks/dto/create-task.dto';
+import { ListTasksQueryDto } from '@/tasks/dto/list-tasks-query.dto';
 import { ReassignTaskDto } from '@/tasks/dto/reassign-task.dto';
 import { ArchiveTaskDto } from '@/tasks/dto/archive-task.dto';
 import { ChangeTaskStatusDto } from '@/tasks/dto/change-task-status.dto';
@@ -29,6 +32,7 @@ export class TasksController {
     private readonly reassignTask: ReassignTask,
     private readonly archiveTask: ArchiveTask,
     private readonly changeTaskStatus: ChangeTaskStatus,
+    private readonly listTasks: ListTasks,
   ) {}
 
   @Post()
@@ -43,6 +47,18 @@ export class TasksController {
       companyId: body.companyId,
     });
     return this.present(task);
+  }
+
+  @Get()
+  async findAll(
+    @Query() query: ListTasksQueryDto,
+    @CurrentActor() actor: Actor,
+  ) {
+    const tasks = await this.listTasks.execute({
+      actor,
+      filter: { assigneeId: query.assigneeId, companyId: query.companyId },
+    });
+    return tasks.map((task) => this.present(task));
   }
 
   @Get(':id')
