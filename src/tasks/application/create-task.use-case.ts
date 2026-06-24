@@ -16,6 +16,10 @@ export interface CreateTaskCommand {
    *    creator themselves).
    */
   assigneeId?: string | null;
+  /** Optional ISO calendar date ('YYYY-MM-DD') the task is due. */
+  dueDate?: string | null;
+  /** Optional id of the company the task is associated with. */
+  companyId?: string | null;
 }
 
 /**
@@ -41,6 +45,8 @@ export class CreateTask {
       title: command.title,
       description: command.description,
       assigneeId,
+      dueDate: command.dueDate,
+      companyId: command.companyId,
     });
     await this.tasks.save(task);
     return task;

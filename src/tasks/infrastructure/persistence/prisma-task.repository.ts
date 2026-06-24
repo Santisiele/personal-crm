@@ -1,6 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 import { Task, TaskId } from '@/tasks/domain/task';
+import {
+  DEFAULT_TASK_STATUS,
+  isTaskStatus,
+  TaskStatus,
+} from '@/tasks/domain/task-status';
 import { TaskRepository } from '@/tasks/domain/task.repository';
+
+/** Formats a stored timestamp as an ISO calendar date ('YYYY-MM-DD'). */
+function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
 
 /** Lookup descriptions used to record a task's archival as an activity. */
 const ARCHIVED_ACTIVITY_STATUS = 'DELETED';
@@ -57,6 +67,9 @@ export class PrismaTaskRepository implements TaskRepository {
         : row.created_by.toString(),
       title: row.title,
       description: row.description,
+      dueDate: row.due_date ? toIsoDate(row.due_date) : null,
+      companyId: row.company_id ? row.company_id.toString() : null,
+      status: await this.statusFromId(row.status_id),
     });
   }
 
@@ -67,7 +80,9 @@ export class PrismaTaskRepository implements TaskRepository {
         title: task.title,
         description: task.description,
         created_by: ownerId,
-        status_id: await this.defaultTaskStatusId(),
+        status_id: await this.statusId(task.status),
+        due_date: task.dueDate ? new Date(task.dueDate) : null,
+        company_id: task.companyId ? BigInt(task.companyId) : null,
       },
     });
     task.assignId(created.id.toString());
@@ -172,14 +187,37 @@ export class PrismaTaskRepository implements TaskRepository {
     });
   }
 
-  private async defaultTaskStatusId(): Promise<bigint> {
-    const row = await this.prisma.task_status.findFirst({
+  /**
+   * Resolves the `task_status.id` for a given domain status by its description.
+   * Falls back to the lowest-id status (the "sane default" convention) when the
+   * description is not present in the lookup table — which keeps creation working
+   * on databases that have not seeded every status row yet.
+   */
+  private async statusId(status: TaskStatus): Promise<bigint> {
+    const byDescription = await this.prisma.task_status.findFirst({
+      where: { description: status },
+    });
+    if (byDescription) {
+      return byDescription.id;
+    }
+    const lowest = await this.prisma.task_status.findFirst({
       orderBy: { id: 'asc' },
     });
-    if (!row) {
-      throw new Error('No task_status rows found; cannot create a task');
+    if (!lowest) {
+      throw new Error(
+        'No task_status rows found; cannot resolve a task status',
+      );
     }
-    return row.id;
+    return lowest.id;
+  }
+
+  /** Maps a stored `task_status.id` back to a domain status. */
+  private async statusFromId(id: bigint): Promise<TaskStatus> {
+    const row = await this.prisma.task_status.findUnique({ where: { id } });
+    if (row && isTaskStatus(row.description)) {
+      return row.description;
+    }
+    return DEFAULT_TASK_STATUS;
   }
 
   private async defaultAssignmentStatusId(): Promise<bigint> {

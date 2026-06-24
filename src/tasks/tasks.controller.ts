@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { CurrentActor } from '@/auth/current-actor.decorator';
 import type { Actor } from '@/shared/domain/actor';
+import { Task } from '@/tasks/domain/task';
 import { ViewTask } from '@/tasks/application/view-task.use-case';
 import { CreateTask } from '@/tasks/application/create-task.use-case';
 import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
@@ -35,14 +36,16 @@ export class TasksController {
       description: body.description,
       // Undefined (omitted) self-assigns; null leaves it unassigned.
       assigneeId: body.assigneeId,
+      dueDate: body.dueDate,
+      companyId: body.companyId,
     });
-    return { id: task.id, ownerId: task.ownerId, assigneeId: task.assigneeId };
+    return this.present(task);
   }
 
   @Get(':id')
   async findOne(@Param('id') id: string, @CurrentActor() actor: Actor) {
     const task = await this.viewTask.execute({ actor, taskId: id });
-    return { id: task.id, ownerId: task.ownerId, assigneeId: task.assigneeId };
+    return this.present(task);
   }
 
   @Patch(':id/assignee')
@@ -67,5 +70,17 @@ export class TasksController {
     @CurrentActor() actor: Actor,
   ): Promise<void> {
     await this.archiveTask.execute({ actor, taskId: id, reason: body.reason });
+  }
+
+  /** Serializes a task aggregate into the HTTP response shape. */
+  private present(task: Task) {
+    return {
+      id: task.id,
+      ownerId: task.ownerId,
+      assigneeId: task.assigneeId,
+      dueDate: task.dueDate,
+      companyId: task.companyId,
+      status: task.status,
+    };
   }
 }

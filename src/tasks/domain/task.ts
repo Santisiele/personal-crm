@@ -1,9 +1,16 @@
+import { TaskStatus, DEFAULT_TASK_STATUS } from '@/tasks/domain/task-status';
+
 export type TaskId = string;
 
 /**
  * Task aggregate. For authorization purposes a task has an owner (the user it
  * "belongs to"); it also tracks the user it is currently assigned to, which
  * reassignment changes. A task may be unassigned (no assignee).
+ *
+ * It also carries some descriptive data: an optional due date (ISO calendar
+ * date 'YYYY-MM-DD' or null), an optional link to a company (companyId or null)
+ * and a workflow status (see TaskStatus). A brand-new task starts in the default
+ * status; status transitions go through `changeStatus`.
  *
  * Identity is assigned by the repository on first persist (the database owns it,
  * e.g. an autoincrement column), so a freshly created task has a null id until
@@ -16,6 +23,9 @@ export class Task {
     private _assigneeId: string | null,
     public readonly title: string,
     public readonly description: string,
+    public readonly dueDate: string | null,
+    public readonly companyId: string | null,
+    private _status: TaskStatus,
   ) {}
 
   /** A brand-new task that has not been persisted yet (no identity). */
@@ -24,6 +34,8 @@ export class Task {
     title: string;
     description: string;
     assigneeId?: string | null;
+    dueDate?: string | null;
+    companyId?: string | null;
   }): Task {
     return new Task(
       null,
@@ -31,6 +43,9 @@ export class Task {
       props.assigneeId ?? null,
       props.title,
       props.description,
+      props.dueDate ?? null,
+      props.companyId ?? null,
+      DEFAULT_TASK_STATUS,
     );
   }
 
@@ -41,6 +56,9 @@ export class Task {
     assigneeId?: string | null;
     title?: string;
     description?: string;
+    dueDate?: string | null;
+    companyId?: string | null;
+    status?: TaskStatus;
   }): Task {
     return new Task(
       props.id,
@@ -48,6 +66,9 @@ export class Task {
       props.assigneeId ?? props.ownerId,
       props.title ?? '',
       props.description ?? '',
+      props.dueDate ?? null,
+      props.companyId ?? null,
+      props.status ?? DEFAULT_TASK_STATUS,
     );
   }
 
@@ -57,6 +78,10 @@ export class Task {
 
   get assigneeId(): string | null {
     return this._assigneeId;
+  }
+
+  get status(): TaskStatus {
+    return this._status;
   }
 
   /** Assigns the persistent identity. Only valid once, on first persist. */
@@ -69,5 +94,9 @@ export class Task {
 
   reassignTo(userId: string): void {
     this._assigneeId = userId;
+  }
+
+  changeStatus(status: TaskStatus): void {
+    this._status = status;
   }
 }
