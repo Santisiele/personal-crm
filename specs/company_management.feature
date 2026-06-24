@@ -10,3 +10,15 @@ Scenario: A user cannot create a company
 Given a user is authenticated
 When the user attempts to create a company
 Then the company is not created
+
+Scenario: An administrator links a contact to a company
+Given an administrator is authenticated
+And a company and a contact exist
+When the contact is linked to the company
+Then the contact and the company are associated
+
+Scenario: A user cannot link a contact to a company
+Given a user is authenticated
+And a company and a contact exist
+When the contact is linked to the company
+Then the link is denied

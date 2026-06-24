@@ -28,6 +28,6 @@ import { CreateContact } from '@/contacts/application/create-contact.use-case';
     },
   ],
   controllers: [ContactsController],
-  exports: [CreateContact],
+  exports: [CreateContact, CONTACT_REPOSITORY],
 })
 export class ContactsModule {}

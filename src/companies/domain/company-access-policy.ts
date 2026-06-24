@@ -13,6 +13,11 @@ export class CompanyAccessPolicy {
     return this.isPrivileged(actor);
   }
 
+  /** Linking contacts is part of managing a company, so same rule as creation. */
+  canLinkContacts(actor: Actor): boolean {
+    return this.isPrivileged(actor);
+  }
+
   private isPrivileged(actor: Actor): boolean {
     return CompanyAccessPolicy.PRIVILEGED_ROLES.includes(actor.role);
   }
