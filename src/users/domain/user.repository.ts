@@ -8,6 +8,7 @@ export interface UserRepository {
   save(user: User): Promise<void>;
   findById(id: UserId): Promise<User | null>;
   findByName(name: string): Promise<User | null>;
+  findAll(): Promise<User[]>;
 }
 
 export const USER_REPOSITORY = Symbol('UserRepository');

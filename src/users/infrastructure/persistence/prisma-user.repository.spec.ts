@@ -82,4 +82,18 @@ describeIfDb('PrismaUserRepository (integration)', () => {
     expect(found!.role).toBe(UserRole.ADMIN);
     expect(found!.passwordHash).toBe('hashed:new');
   });
+
+  it('lists the users it has persisted', async () => {
+    const user = User.create({
+      name: 'Integration List',
+      role: UserRole.USER,
+      passwordHash: 'hashed:list',
+    });
+    await repository.save(user);
+    createdUserIds.push(BigInt(user.id!));
+
+    const all = await repository.findAll();
+    const ids = all.map((u) => u.id);
+    expect(ids).toContain(user.id);
+  });
 });

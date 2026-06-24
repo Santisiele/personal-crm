@@ -12,6 +12,8 @@ import { ScryptPasswordHasher } from '@/users/infrastructure/hashing/scrypt-pass
 import { CreateUser } from '@/users/application/create-user.use-case';
 import { ChangePassword } from '@/users/application/change-password.use-case';
 import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
+import { ListUsers } from '@/users/application/list-users.use-case';
+import { ViewUser } from '@/users/application/view-user.use-case';
 
 /**
  * Composition root for the users context. Binds the driven ports to their
@@ -49,12 +51,24 @@ import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
       useFactory: (users: UserRepository) => new ChangeUserRole(users),
       inject: [USER_REPOSITORY],
     },
+    {
+      provide: ListUsers,
+      useFactory: (users: UserRepository) => new ListUsers(users),
+      inject: [USER_REPOSITORY],
+    },
+    {
+      provide: ViewUser,
+      useFactory: (users: UserRepository) => new ViewUser(users),
+      inject: [USER_REPOSITORY],
+    },
   ],
   controllers: [UsersController],
   exports: [
     CreateUser,
     ChangePassword,
     ChangeUserRole,
+    ListUsers,
+    ViewUser,
     USER_REPOSITORY,
     PASSWORD_HASHER,
   ],
