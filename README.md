@@ -48,14 +48,18 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 ## Estado actual
 
 ### Contexto `users` (`src/users`)
-- **Dominio**: `User` (la identidad la asigna el repositorio en el primer `save` vía `assignId`; antes el id es `null`), enum `UserRole` (`USER` | `ADMIN` | `CREATOR`).
-- **Puertos**: `UserRepository` (con `findById` / `findByName`), `PasswordHasher`.
-- **Casos de uso**: `CreateUser` (rechaza `name` duplicado con `UserNameTakenError` → 409; `name` es único), `ChangePassword`, `ChangeUserRole`.
-- **Adaptadores**: `InMemoryUserRepository`, `PrismaUserRepository` (resuelve el rol contra `user_role.description`), `ScryptPasswordHasher`.
+- **Dominio**: `User` (la identidad la asigna el repositorio en el primer `save` vía `assignId`; antes el id es `null`), enum `UserRole` (`USER` | `ADMIN` | `CREATOR`). `UserAccessPolicy` (domain service) con `canList` (solo privilegiado) y `canView` (privilegiado o el propio usuario).
+- **Puertos**: `UserRepository` (`save`, `findById`, `findByName`, `findAll`), `PasswordHasher`.
+- **Casos de uso**: `CreateUser` (rechaza `name` duplicado con `UserNameTakenError` → 409; `name` es único), `ChangePassword`, `ChangeUserRole`, `ListUsers`, `ViewUser`.
+- **Vista segura**: `UserView` (`{ id, name, role }`) + `toUserView(user)` — **nunca** expone el hash de contraseña. Las queries (`ListUsers`/`ViewUser`) devuelven `UserView`, no el agregado.
+- **Adaptadores**: `InMemoryUserRepository`, `PrismaUserRepository` (resuelve el rol contra `user_role.description`; `findAll` ordena por `id`), `ScryptPasswordHasher`.
+- **Errores de dominio**: `UserNotFoundError` (→404), `UserAccessDeniedError` (→403).
 - **Endpoints** (`UsersController`):
   - `POST /users` — crear usuario (`CreateUserDto`).
   - `PATCH /users/me/password` — cambiar la propia contraseña (userId sale del `Actor`).
   - `PATCH /users/:id/role` — cambiar el rol.
+  - `GET /users` — listar usuarios; **solo privilegiado** (ADMIN/CREATOR), si no `403`. Devuelve `UserView[]`.
+  - `GET /users/:id` — ver un usuario; **privilegiado o el propio usuario**, si no `403`; `404` si no existe. Devuelve `UserView`.
 
 ### Contexto `tasks` (`src/tasks`)
 - **Dominio**: `Task` lleva `id` (lo asigna el repositorio en el primer `save`; antes es `null`), `ownerId`, `assigneeId` (puede ser `null` = sin asignar), `title`, `description`, `dueDate` (fecha ISO `YYYY-MM-DD` o `null`), `companyId` (id de empresa o `null`) y `status` (enum `TaskStatus`: `PENDING` | `IN_PROGRESS` | `DONE`; default `PENDING` al crear). `changeStatus` transiciona el estado. **No modela** historial de asignaciones. `TaskStatus` vive en `domain/task-status.ts` (sus valores matchean las descripciones de `task_status`). `TaskAccessPolicy` (domain service) con `canView` (privilegiado o dueño), `canReassign` (solo dueño), `canChangeStatus` (dueño, asignado o privilegiado), `isVisibleInList` (dueño, asignado o privilegiado — para el listado), `canAssignTo` (uno mismo, o privilegiado para asignar a otro / dejar sin asignar) y `canArchive` (dueño o privilegiado).
@@ -204,11 +208,11 @@ src/
   auth/                    # JWT: login (access+refresh), POST /auth/refresh, JwtAuthGuard (global), @Public, @CurrentActor
   prisma/                  # PrismaModule (@Global), PrismaService
   users/
-    domain/                # User, UserRole, puertos (UserRepository, PasswordHasher), errores
-    application/           # CreateUser, ChangePassword, ChangeUserRole
+    domain/                # User, UserRole, UserAccessPolicy, puertos (UserRepository, PasswordHasher), errores
+    application/           # CreateUser, ChangePassword, ChangeUserRole, ListUsers, ViewUser, UserView
     infrastructure/        # persistence (in-memory, prisma), hashing (scrypt)
     dto/                   # CreateUserDto, ChangePasswordDto, ChangeUserRoleDto
-    tests/                 # user-management.steps.ts, doubles/
+    tests/                 # user-management.steps.ts, user-directory.steps.ts, doubles/
     users.controller.ts | users.module.ts
   tasks/
     domain/                # Task, TaskAccessPolicy, errores
