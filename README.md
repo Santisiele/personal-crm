@@ -71,10 +71,16 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
   - `POST /tasks/:id/archive` — archivar (borrado lógico, `ArchiveTaskDto`: `reason`). Setea `deleted_at`/`deleted_by` y registra la razón como un `task_activity` cuyo `activity_status` ('DELETED') la marca como borrado. La tarea archivada **deja de aparecer** en `findById`/`findAll` (ver/reasignar/cambiar estado/listar la omiten). Dueño o privilegiado.
 
 ### Contexto `contacts` (`src/contacts`)
-- **Dominio**: `Contact` (id repo-asignado; `contactName`, `email?`, `birth?` como fecha ISO `YYYY-MM-DD`). `ContactNotFoundError`.
-- **Casos de uso**: `CreateContact` (sin autorización — cualquiera crea un contacto, como `POST /users`).
-- **Adaptadores**: `InMemoryContactRepository`, `PrismaContactRepository`.
-- **Endpoint**: `POST /contacts` (`CreateContactDto`). El módulo exporta `CONTACT_REPOSITORY` para que `companies` lo reuse.
+- **Dominio**: `Contact` (id repo-asignado; `contactName`, `email?`, `birth?` como fecha ISO `YYYY-MM-DD`). Atributos privados con getters (como `User`); la edición pasa por `Contact.update`, que aplica un cambio parcial (solo toca los atributos provistos). `ContactNotFoundError`.
+- **Puertos**: `ContactRepository` (`save`, `findById`, `findAll`).
+- **Casos de uso**: `CreateContact`, `ListContacts`, `ViewContact` y `UpdateContact` — **todos sin autorización** (cualquiera lee/crea/edita un contacto, como `POST /users`). `ViewContact`/`UpdateContact` lanzan `ContactNotFoundError` (→404) si el id no existe.
+- **Adaptadores**: `InMemoryContactRepository`, `PrismaContactRepository` (el `save` despacha por identidad: sin id → INSERT; con id → UPDATE in-place, reusado por la edición).
+- **Endpoints** (`ContactsController`):
+  - `POST /contacts` — crear contacto (`CreateContactDto`).
+  - `GET /contacts` — listar todos.
+  - `GET /contacts/:id` — ver uno (404 si no existe).
+  - `PATCH /contacts/:id` — editar `contactName`/`email`/`birth` (`UpdateContactDto`, parcial y validado; 404 si no existe).
+- El módulo exporta `CONTACT_REPOSITORY` para que `companies` lo reuse.
 
 ### Contexto `companies` (`src/companies`)
 - **Dominio**: `Company` (id repo-asignado; `companyName`, `ownerId` = `created_by`, `cuit?`/`brand?`/`product?`/`origin?`). `CompanyAccessPolicy` (`canCreate`, `canLinkContacts` = solo ADMIN/CREATOR) + `CompanyAccessDeniedError`. `CompanyNotFoundError`. `CompanyContactLink` (vínculo `contact_x_company` con `roleInCompany?`/`phone?`).
