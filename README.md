@@ -83,12 +83,16 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 - El módulo exporta `CONTACT_REPOSITORY` para que `companies` lo reuse.
 
 ### Contexto `companies` (`src/companies`)
-- **Dominio**: `Company` (id repo-asignado; `companyName`, `ownerId` = `created_by`, `cuit?`/`brand?`/`product?`/`origin?`). `CompanyAccessPolicy` (`canCreate`, `canLinkContacts` = solo ADMIN/CREATOR) + `CompanyAccessDeniedError`. `CompanyNotFoundError`. `CompanyContactLink` (vínculo `contact_x_company` con `roleInCompany?`/`phone?`).
-- **Casos de uso**: `CreateCompany`, `LinkContactToCompany` (verifica que empresa y contacto existan).
-- **Adaptadores**: in-memory + Prisma para `Company` y para el vínculo. Al crear, `status_id` = el `company_status` de menor id (default).
+- **Dominio**: `Company` (id repo-asignado; `companyName`, `ownerId` = `created_by`, `cuit?`/`brand?`/`product?`/`origin?`, `status?` = descripción de `company_status`). Métodos `update(...)` (edita los campos presentes; `null` limpia, omitir no toca) y `changeStatus(...)`. `CompanyAccessPolicy` (`canCreate`, `canLinkContacts`, `canEdit`, `canChangeStatus` = solo ADMIN/CREATOR) + `CompanyAccessDeniedError`. `CompanyNotFoundError`, `CompanyStatusNotFoundError`. `CompanyContactLink` (vínculo `contact_x_company` con `roleInCompany?`/`phone?`).
+- **Casos de uso**: `CreateCompany`, `LinkContactToCompany` (verifica que empresa y contacto existan), `ListCompanies`, `ViewCompany` (hidrata los contactos vinculados vía `CompanyContactLinkRepository` + `ContactRepository`), `EditCompany`, `ChangeCompanyStatus`.
+- **Puertos/Adaptadores**: in-memory + Prisma para `Company` (`save`/`findById`/`findAll`) y para el vínculo (`save`/`findByCompanyId`). Al crear, `status_id` = el `company_status` de menor id (default); al transicionar, se resuelve el `status_id` por descripción (404 `CompanyStatusNotFoundError` si no existe). `save` despacha por identidad: sin id → INSERT, con id → UPDATE (editar/transicionar).
 - **Endpoints** (`CompaniesController`):
   - `POST /companies` — crear empresa (**solo ADMIN/CREATOR**; el creador es el dueño).
+  - `GET /companies` — listar empresas (cualquier autenticado).
+  - `GET /companies/:id` — ver una empresa con sus contactos vinculados (cualquier autenticado); 404 si no existe.
   - `POST /companies/:id/contacts` — vincular un contacto existente (`LinkContactDto`: `contactId`, `roleInCompany?`, `phone?`). Solo privilegiados; 404 si la empresa o el contacto no existen. `CompaniesModule` importa `ContactsModule` para reusar el `ContactRepository`.
+  - `PATCH /companies/:id` — editar campos (`EditCompanyDto`: `companyName?`/`cuit?`/`brand?`/`product?`/`origin?`). Solo privilegiados; 404 si no existe.
+  - `PATCH /companies/:id/status` — transicionar el estado (`ChangeCompanyStatusDto`: `status` = descripción). Solo privilegiados; 404 si no existe.
 
 ### Contexto `task-activities` (`src/task-activities`)
 - **Dominio**: `TaskActivity` (id repo-asignado; `taskId`, `authorId` = actor, `activityDate` ISO, `actionType`/`status` por descripción, `description?`, `nextAction?`, `nextActionDate?`).
