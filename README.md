@@ -135,7 +135,7 @@ pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 
 - **Autenticación real** (login/JWT) reemplazando el `@CurrentActor()` de headers, y enforcement donde haga falta.
 - **`Task.status` en el dominio**: hoy la creación usa el `task_status` de menor id como default; cuando el flujo de estados importe, modelarlo en el agregado en vez de inferirlo en el adaptador.
-- **e2e**: cubre `GET /` y el camino feliz de creación de tareas. Faltan los caminos de error (403 al asignar a otro siendo USER, 404, validación) y flujos de reasignación.
+- **e2e**: cubre `GET /`, creación de tareas (USER para sí, ADMIN a otro), los caminos de error (403, 400, 404) y la reasignación (owner ok / no-owner 403). Próximo: validaciones más finas y cobertura de `users`.
 - Contextos scaffolding vacíos: `companies`, `contacts`, `task-activities`, `task-assignments`.
 
 ### Autorización por rol en creación (implementado)
