@@ -45,6 +45,6 @@ import { ArchiveTask } from '@/tasks/application/archive-task.use-case';
     },
   ],
   controllers: [TasksController],
-  exports: [CreateTask, ViewTask, ReassignTask, ArchiveTask],
+  exports: [TASK_REPOSITORY, CreateTask, ViewTask, ReassignTask, ArchiveTask],
 })
 export class TasksModule {}
