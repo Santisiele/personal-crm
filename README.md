@@ -99,12 +99,24 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 - **Casos de uso**: `LogTaskActivity` — carga la tarea (`TaskRepository` del contexto `tasks`), exige `TaskAccessPolicy.canView` (dueño o privilegiado), y guarda. `actionType`/`status` se resuelven contra `action_type`/`activity_status` por descripción.
 - **Endpoint**: `POST /tasks/:taskId/activities` (`LogTaskActivityDto`). `TaskActivitiesModule` importa `TasksModule` (que ahora exporta `TASK_REPOSITORY`).
 
+### Contexto `task-assignments` (`src/task-assignments`)
+- **Dominio**: `TaskAssignment` (id repo-asignado; `taskId`, `assigneeId`, `assignedById`, `status`, `assignedAt`). Es **una entrada del historial** de asignaciones de una tarea. `AssignmentStatus` (enum `PENDING | ACCEPTED | REJECTED`; sus descripciones son los valores del lookup `assignment_status`). El agregado expone `accept()` / `reject()` (transiciones del ciclo de vida) e `isAssignedTo(userId)`. `TaskAssignmentNotFoundError` (→404).
+- **Puertos**: `TaskAssignmentRepository` (`save`, `findByTaskId` ordenado most-recent first, `findById`).
+- **Casos de uso**:
+  - `ViewAssignmentHistory` — carga la tarea (`TaskRepository` del contexto `tasks`), exige `TaskAccessPolicy.canView` (dueño o privilegiado) y devuelve el historial completo. 404 si la tarea no existe.
+  - `RespondToAssignment` — el **assignee** acepta o rechaza **su** asignación (`AssignmentResponse.ACCEPT | REJECT`). Solo el assignee puede (invariante del agregado vía `isAssignedTo`, no de `TaskAccessPolicy`) → `AccessDeniedError` (403) si no; 404 si la asignación no existe.
+- **Adaptadores**: `InMemoryTaskAssignmentRepository` (identidad con contador) y `PrismaTaskAssignmentRepository`. Este último mapea `assigneeId↔user_id`, `assignedById↔assigned_by`, `assignedAt↔assigned_at`, y resuelve `status` contra `assignment_status` **por descripción** (con fallback al `assignment_status` de menor id si la descripción no está seedeada, igual que el default del adaptador de `tasks`). `save` despacha por identidad: sin id → INSERT de una fila nueva del historial; con id → UPDATE del `status_id` en su lugar (accept/reject).
+- **Endpoints** (`TaskAssignmentsController`, prefijo `tasks/:taskId/assignments`):
+  - `GET /tasks/:taskId/assignments` — historial completo, most-recent first (autorizado por la política de la tarea).
+  - `POST /tasks/:taskId/assignments/:id/accept` — el assignee acepta (200).
+  - `POST /tasks/:taskId/assignments/:id/reject` — el assignee rechaza (200).
+- **Relación con `tasks`**: este contexto **lee/extiende el historial**; `tasks` solo actualiza la asignación más reciente en su lugar al reasignar (eso no se toca acá). `TaskAssignmentsModule` importa `TasksModule` (reusa `TASK_REPOSITORY` y `TaskAccessPolicy`).
+
 ### Shared / common / auth
 - `src/shared/domain/actor.ts` — **`Actor`** (`{ id, role }`), kernel compartido entre contextos.
 - `src/shared/domain/domain-error.ts` — jerarquía `DomainError` → `NotFoundError` / `AuthenticationError` / `AuthorizationError` / `ConflictError` (usa `new.target.name`).
 - `src/common/filters/domain-exception.filter.ts` — `DomainExceptionFilter` global: mapea **por categoría** (`NotFoundError`→404, `AuthenticationError`→401, `AuthorizationError`→403, `ConflictError`→409). Los controllers **no hacen try/catch**.
 - `src/auth/` — **autenticación JWT real con access + refresh**. `POST /auth/login` (público) busca el usuario por `name`, verifica la contraseña (`ScryptPasswordHasher`) y emite un **par de tokens**: un **access token** corto (`exp` 1h por defecto) y un **refresh token** largo (7d por defecto), ambos firmados con `jsonwebtoken` y distinguidos por un claim `purpose` (`access`/`refresh`). El puerto `TokenIssuer` ahora **emite y verifica** ambos (`issueAccessToken`/`issueRefreshToken`/`verifyAccessToken`/`verifyRefreshToken`); el adaptador `JwtTokenIssuer` traduce cualquier fallo (expirado, manipulado, de tipo equivocado) a un `InvalidTokenError` (`AuthenticationError` → 401). `POST /auth/refresh` (público) valida un refresh token y emite un access token fresco vía el caso de uso framework-free `RefreshAccessToken` (cableado con `useFactory`). Un **guard global** (`JwtAuthGuard` vía `APP_GUARD`) verifica el Bearer **a través del puerto** (no `jsonwebtoken` directo) y setea `request.user`; un token faltante/expirado/inválido da 401. Rutas públicas con `@Public()` (`POST /auth/login`, `POST /auth/refresh`, `POST /users`, `GET /`); **el resto exige token**. TTLs configurables vía `JWT_ACCESS_TTL_SECONDS`/`JWT_REFRESH_TTL_SECONDS`. `UserRepository` ganó `findByName`; `name` es **único** (índice en DB), así que identifica sin ambigüedad.
-- Scaffolding aún vacío: `task-assignments` (historial de asignaciones).
 
 ### Configuración transversal (`AppModule`)
 - `APP_FILTER` → `DomainExceptionFilter`.
@@ -169,9 +181,9 @@ pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 - **DB sin migraciones versionadas**: el índice único `app_user_name_key` se aplicó a mano sobre la dev DB para matchear el `@unique` del schema. Si en algún momento se adopta `prisma migrate`, formalizarlo.
 - **`Task.status` en el dominio** (implementado): el agregado modela `status` (`TaskStatus`: `PENDING` | `IN_PROGRESS` | `DONE`), default `PENDING` al crear, y se transiciona vía `PATCH /tasks/:id/status`. El adaptador Prisma resuelve `task_status` por descripción (fallback al de menor id si la descripción no está seedeada), así que conviene seedear las descripciones `PENDING`/`IN_PROGRESS`/`DONE` para que el flujo persista el estado correcto.
 - **Refresh stateless (sin revocación)**: el refresh token es un JWT firmado sin store en servidor, así que **no se puede revocar** antes de su `exp` (logout solo descarta el token en el cliente). Si hace falta revocación/rotación (logout server-side, detección de reuso), recién ahí agregar un store de refresh tokens detrás del puerto `TokenIssuer` (el escenario lo pediría primero).
-- **e2e**: cubre `GET /`, tareas (crear/ver/reasignar/archivar con sus 200/201/204/400/403/404), `users` (password/rol), `contacts`, `companies` y el vínculo contacto↔empresa, y el **ciclo de tokens de auth** (login con par access/refresh, `POST /auth/refresh`, rechazo 401 de tokens expirados/manipulados/inválidos/de tipo equivocado — `test/auth.e2e-spec.ts`). Todo contra la DB real y self-cleaning.
+- **e2e**: cubre `GET /`, tareas (crear/ver/reasignar/archivar/estado/listar), `users` (password/rol + directorio), `contacts` (alta/lista/detalle/edición), `companies` (alta/lista/detalle/edición/estado) y el vínculo contacto↔empresa, el **historial de asignaciones** (`test/task-assignments.e2e-spec.ts`: GET historial 200/403/404, accept/reject 200/403/404) y el **ciclo de tokens de auth** (`test/auth.e2e-spec.ts`: login con par access/refresh, `POST /auth/refresh`, 401 de tokens expirados/manipulados/inválidos). Todo contra la DB real y self-cleaning con sufijo único por corrida.
 - **Lookups del archivado**: el adaptador resuelve `activity_status='DELETED'` y `action_type='ARCHIVE'` por descripción y falla si faltan (hay que seedearlos). Cuando se modele `task_activity` en serio, formalizar estos lookups.
-- Contexto scaffolding vacío: `task-assignments` (historial de asignaciones).
+- **Lookups de `assignment_status`**: el contexto `task-assignments` resuelve `assignment_status` por descripción (`PENDING`/`ACCEPTED`/`REJECTED`). Conviene **seedear** esas tres filas. Al crear una asignación, si la descripción falta cae al `assignment_status` de menor id (mismo default que el adaptador de `tasks`), pero **accept/reject necesitan que `ACCEPTED`/`REJECTED` existan** para reflejar el estado correcto.
 
 ### Autorización por rol en creación (implementado)
 Regla: *cualquiera crea una task asignada a sí mismo; solo privilegiados (ADMIN/CREATOR) la asignan a otro o la dejan sin asignar.*
@@ -214,6 +226,8 @@ src/
     infrastructure/ dto/ tests/
     companies.controller.ts | companies.module.ts
   task-activities/         # TaskActivity, LogTaskActivity (POST /tasks/:id/activities)
+  task-assignments/        # TaskAssignment (historial), ViewAssignmentHistory + RespondToAssignment
+                           #   (GET /tasks/:taskId/assignments, POST .../:id/accept|reject)
 test/                      # app.e2e-spec.ts (e2e real-DB, JWT), setup-e2e.ts, jest-e2e.json
 specs/                     # *.feature (Gherkin)
 prisma/schema.prisma
