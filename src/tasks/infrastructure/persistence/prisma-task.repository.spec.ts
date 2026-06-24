@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Task } from '@/tasks/domain/task';
 import { PrismaTaskRepository } from '@/tasks/infrastructure/persistence/prisma-task.repository';
 
 /**
@@ -77,8 +78,16 @@ describeIfDb('PrismaTaskRepository (integration)', () => {
   });
 
   afterAll(async () => {
-    await prisma.task_assignment.deleteMany({ where: { task_id: taskId } });
-    await prisma.task.deleteMany({ where: { id: taskId } });
+    // The create tests insert extra tasks owned by `ownerId`; clean them all up
+    // (and their assignments) regardless of their generated ids.
+    const owned = await prisma.task.findMany({
+      where: { created_by: ownerId },
+      select: { id: true },
+    });
+    await prisma.task_assignment.deleteMany({
+      where: { task_id: { in: owned.map((t) => t.id) } },
+    });
+    await prisma.task.deleteMany({ where: { created_by: ownerId } });
     await prisma.app_user.deleteMany({
       where: { id: { in: [ownerId, otherUserId] } },
     });
@@ -117,5 +126,39 @@ describeIfDb('PrismaTaskRepository (integration)', () => {
     });
     expect(rows).toHaveLength(1);
     expect(rows[0].user_id.toString()).toBe(ownerId.toString());
+  });
+
+  it('creates a task assigned to another user', async () => {
+    const task = Task.create({
+      ownerId: ownerId.toString(),
+      title: 'Created and assigned',
+      description: 'assigned to another user',
+      assigneeId: otherUserId.toString(),
+    });
+    await repository.save(task);
+
+    expect(task.id).not.toBeNull();
+    const reloaded = await repository.findById(task.id!);
+    expect(reloaded!.ownerId).toBe(ownerId.toString());
+    expect(reloaded!.assigneeId).toBe(otherUserId.toString());
+  });
+
+  it('creates an unassigned task with no assignment row and reads back the owner', async () => {
+    const task = Task.create({
+      ownerId: ownerId.toString(),
+      title: 'Created unassigned',
+      description: 'no assignee',
+      assigneeId: null,
+    });
+    await repository.save(task);
+
+    const assignments = await prisma.task_assignment.findMany({
+      where: { task_id: BigInt(task.id!) },
+    });
+    expect(assignments).toHaveLength(0);
+
+    // With no assignment, the read model falls back to the owner.
+    const reloaded = await repository.findById(task.id!);
+    expect(reloaded!.assigneeId).toBe(ownerId.toString());
   });
 });

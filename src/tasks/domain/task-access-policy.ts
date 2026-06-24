@@ -17,6 +17,14 @@ export class TaskAccessPolicy {
     return this.owns(actor, task);
   }
 
+  /**
+   * Anyone may create a task assigned to themselves; only privileged actors may
+   * assign it to someone else or leave it unassigned (assigneeId === null).
+   */
+  canAssignTo(actor: Actor, assigneeId: string | null): boolean {
+    return this.isPrivileged(actor) || assigneeId === actor.id;
+  }
+
   private isPrivileged(actor: Actor): boolean {
     return TaskAccessPolicy.PRIVILEGED_ROLES.includes(actor.role);
   }

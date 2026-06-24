@@ -46,7 +46,7 @@ defineFeature(feature, (test) => {
   const requestsTheTask = (when: any) =>
     when('requests the task', async () => {
       try {
-        await viewTask.execute({ actor, taskId: task.id });
+        await viewTask.execute({ actor, taskId: task.id! });
         accessGranted = true;
       } catch (error) {
         if (error instanceof AccessDeniedError) {
@@ -100,7 +100,7 @@ defineFeature(feature, (test) => {
       try {
         await reassignTask.execute({
           actor,
-          taskId: task.id,
+          taskId: task.id!,
           newAssigneeId: NEW_ASSIGNEE_ID,
         });
         accessGranted = true;
@@ -119,7 +119,7 @@ defineFeature(feature, (test) => {
     attemptsToReassign(when, 'reassigns the task');
     then('the reassignment is successful', async () => {
       expect(accessGranted).toBe(true);
-      const stored = await tasks.findById(task.id);
+      const stored = await tasks.findById(task.id!);
       expect(stored!.assigneeId).toBe(NEW_ASSIGNEE_ID);
     });
   });
