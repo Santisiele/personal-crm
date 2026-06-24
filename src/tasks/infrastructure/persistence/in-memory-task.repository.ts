@@ -12,15 +12,16 @@ export class InMemoryTaskRepository implements TaskRepository {
   private readonly tasks = new Map<TaskId, Task>();
   private sequence = 0;
 
-  async save(task: Task): Promise<void> {
+  save(task: Task): Promise<void> {
     if (task.id === null) {
       this.sequence += 1;
       task.assignId(String(this.sequence));
     }
     this.tasks.set(task.id as TaskId, task);
+    return Promise.resolve();
   }
 
-  async findById(id: TaskId): Promise<Task | null> {
-    return this.tasks.get(id) ?? null;
+  findById(id: TaskId): Promise<Task | null> {
+    return Promise.resolve(this.tasks.get(id) ?? null);
   }
 }

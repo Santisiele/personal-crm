@@ -12,15 +12,16 @@ export class InMemoryUserRepository implements UserRepository {
   private readonly users = new Map<UserId, User>();
   private sequence = 0;
 
-  async save(user: User): Promise<void> {
+  save(user: User): Promise<void> {
     if (user.id === null) {
       this.sequence += 1;
       user.assignId(String(this.sequence));
     }
     this.users.set(user.id as UserId, user);
+    return Promise.resolve();
   }
 
-  async findById(id: UserId): Promise<User | null> {
-    return this.users.get(id) ?? null;
+  findById(id: UserId): Promise<User | null> {
+    return Promise.resolve(this.users.get(id) ?? null);
   }
 }
