@@ -1,23 +1,31 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
 
 /**
  * End-to-end tests against the REAL database (the disposable Supabase dev DB).
- * They exercise the full stack: HTTP → ValidationPipe → @CurrentActor headers →
- * use case → Prisma → Postgres. Every row created here is cleaned up afterwards.
+ * They exercise the full stack: HTTP → JWT guard → ValidationPipe →
+ * @CurrentActor → use case → Prisma → Postgres. Users authenticate via
+ * POST /auth/login and send a Bearer token. Every row created is cleaned up.
  */
+// Unique suffix per run so login-by-name always resolves to this run's users,
+// even if a previous failed run left stale 'E2E *' rows behind.
+const RUN = Date.now();
+
 describe('App (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   let prisma: PrismaService;
 
   // Users we create through the API; tracked so we can remove them afterwards.
   let ownerId: string;
   let otherId: string;
   let adminId: string;
+  // JWTs obtained by logging each user in (auth is now real).
+  let ownerToken: string;
+  let otherToken: string;
+  let adminToken: string;
 
   // Lookup rows we may have to seed, and tasks we create — all cleaned up.
   let seededTaskStatusId: bigint | null = null;
@@ -25,15 +33,22 @@ describe('App (e2e)', () => {
   let seededCompanyStatusId: bigint | null = null;
   let seededActivityStatusId: bigint | null = null;
   let seededActionTypeId: bigint | null = null;
+  let seededCallTypeId: bigint | null = null;
+  let seededDoneStatusId: bigint | null = null;
   const createdTaskIds: bigint[] = [];
   const createdUserIds: string[] = [];
   const createdContactIds: bigint[] = [];
   const createdCompanyIds: bigint[] = [];
 
-  const actor = (id: string, role: string) => ({
-    'x-user-id': id,
-    'x-user-role': role,
-  });
+  const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+  const login = async (name: string): Promise<string> => {
+    const res = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ name, password: 'secret-password' })
+      .expect(200);
+    return (res.body as { accessToken: string }).accessToken;
+  };
 
   const createUser = async (name: string, role: string): Promise<string> => {
     const res = await request(app.getHttpServer())
@@ -96,10 +111,32 @@ describe('App (e2e)', () => {
       });
       seededActionTypeId = type.id;
     }
+    // Lookups for the task-activity follow-up test.
+    if (
+      !(await prisma.action_type.findFirst({ where: { description: 'CALL' } }))
+    ) {
+      const type = await prisma.action_type.create({
+        data: { description: 'CALL' },
+      });
+      seededCallTypeId = type.id;
+    }
+    if (
+      !(await prisma.activity_status.findFirst({
+        where: { description: 'DONE' },
+      }))
+    ) {
+      const status = await prisma.activity_status.create({
+        data: { description: 'DONE' },
+      });
+      seededDoneStatusId = status.id;
+    }
 
-    ownerId = await createUser('E2E Owner', 'USER');
-    otherId = await createUser('E2E Other', 'USER');
-    adminId = await createUser('E2E Admin', 'ADMIN');
+    ownerId = await createUser(`E2E Owner ${RUN}`, 'USER');
+    otherId = await createUser(`E2E Other ${RUN}`, 'USER');
+    adminId = await createUser(`E2E Admin ${RUN}`, 'ADMIN');
+    ownerToken = await login(`E2E Owner ${RUN}`);
+    otherToken = await login(`E2E Other ${RUN}`);
+    adminToken = await login(`E2E Admin ${RUN}`);
   });
 
   afterAll(async () => {
@@ -155,6 +192,14 @@ describe('App (e2e)', () => {
         where: { id: seededActionTypeId },
       });
     }
+    if (seededCallTypeId) {
+      await prisma.action_type.deleteMany({ where: { id: seededCallTypeId } });
+    }
+    if (seededDoneStatusId) {
+      await prisma.activity_status.deleteMany({
+        where: { id: seededDoneStatusId },
+      });
+    }
     await app.close();
   });
 
@@ -179,7 +224,7 @@ describe('App (e2e)', () => {
     it('lets a user create a task for themselves and read it back', async () => {
       const created = await request(app.getHttpServer())
         .post('/tasks')
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .send({ title: 'E2E task', description: 'created over HTTP' })
         .expect(201);
 
@@ -191,7 +236,7 @@ describe('App (e2e)', () => {
 
       await request(app.getHttpServer())
         .get(`/tasks/${body.id}`)
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .expect(200)
         .expect({ id: body.id, ownerId, assigneeId: ownerId });
     });
@@ -199,7 +244,7 @@ describe('App (e2e)', () => {
     it('lets an admin create a task assigned to another user', async () => {
       const created = await request(app.getHttpServer())
         .post('/tasks')
-        .set(actor(adminId, 'ADMIN'))
+        .set(bearer(adminToken))
         .send({
           title: 'Assigned by admin',
           description: 'for another user',
@@ -217,7 +262,7 @@ describe('App (e2e)', () => {
     it('forbids a user from assigning a task to another user (403)', () => {
       return request(app.getHttpServer())
         .post('/tasks')
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .send({
           title: 'Should be denied',
           description: 'user assigning to other',
@@ -229,7 +274,7 @@ describe('App (e2e)', () => {
     it('rejects a task with a missing title (400)', () => {
       return request(app.getHttpServer())
         .post('/tasks')
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .send({ description: 'no title' })
         .expect(400);
     });
@@ -239,7 +284,7 @@ describe('App (e2e)', () => {
     it('returns 404 for a task that does not exist', () => {
       return request(app.getHttpServer())
         .get('/tasks/999999999999999')
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .expect(404);
     });
   });
@@ -248,7 +293,7 @@ describe('App (e2e)', () => {
     const createOwnedTask = async (title: string): Promise<string> => {
       const created = await request(app.getHttpServer())
         .post('/tasks')
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .send({ title, description: 'for reassignment' })
         .expect(201);
       const body = recordTask(
@@ -262,13 +307,13 @@ describe('App (e2e)', () => {
 
       await request(app.getHttpServer())
         .patch(`/tasks/${taskId}/assignee`)
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .send({ newAssigneeId: otherId })
         .expect(204);
 
       await request(app.getHttpServer())
         .get(`/tasks/${taskId}`)
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .expect(200)
         .expect({ id: taskId, ownerId, assigneeId: otherId });
     });
@@ -278,7 +323,7 @@ describe('App (e2e)', () => {
 
       await request(app.getHttpServer())
         .patch(`/tasks/${taskId}/assignee`)
-        .set(actor(otherId, 'USER'))
+        .set(bearer(otherToken))
         .send({ newAssigneeId: adminId })
         .expect(403);
     });
@@ -288,7 +333,7 @@ describe('App (e2e)', () => {
     const createOwnedTask = async (title: string): Promise<string> => {
       const created = await request(app.getHttpServer())
         .post('/tasks')
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .send({ title, description: 'to be archived' })
         .expect(201);
       return recordTask(
@@ -301,13 +346,13 @@ describe('App (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/tasks/${taskId}/archive`)
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .send({ reason: 'No longer needed' })
         .expect(204);
 
       await request(app.getHttpServer())
         .get(`/tasks/${taskId}`)
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .expect(404);
     });
 
@@ -316,7 +361,7 @@ describe('App (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/tasks/${taskId}/archive`)
-        .set(actor(otherId, 'USER'))
+        .set(bearer(otherToken))
         .send({ reason: 'sneaky' })
         .expect(403);
     });
@@ -324,14 +369,15 @@ describe('App (e2e)', () => {
 
   describe('user management', () => {
     it('lets a user change their own password (204)', async () => {
-      const userId = await createUser('E2E Pwd', 'USER');
+      const userId = await createUser(`E2E Pwd ${RUN}`, 'USER');
+      const token = await login(`E2E Pwd ${RUN}`);
       const before = await prisma.app_user.findUniqueOrThrow({
         where: { id: BigInt(userId) },
       });
 
       await request(app.getHttpServer())
         .patch('/users/me/password')
-        .set(actor(userId, 'USER'))
+        .set(bearer(token))
         .send({ newPassword: 'a-brand-new-password' })
         .expect(204);
 
@@ -342,10 +388,11 @@ describe('App (e2e)', () => {
     });
 
     it("changes a user's role (204)", async () => {
-      const userId = await createUser('E2E Promote', 'USER');
+      const userId = await createUser(`E2E Promote ${RUN}`, 'USER');
 
       await request(app.getHttpServer())
         .patch(`/users/${userId}/role`)
+        .set(bearer(adminToken))
         .send({ role: 'ADMIN' })
         .expect(204);
 
@@ -361,6 +408,7 @@ describe('App (e2e)', () => {
     const createContact = async (): Promise<string> => {
       const res = await request(app.getHttpServer())
         .post('/contacts')
+        .set(bearer(ownerToken))
         .send({ contactName: 'E2E Contact', email: 'e2e@example.com' })
         .expect(201);
       const id = (res.body as { id: string }).id;
@@ -371,7 +419,7 @@ describe('App (e2e)', () => {
     const createCompany = async (): Promise<string> => {
       const res = await request(app.getHttpServer())
         .post('/companies')
-        .set(actor(adminId, 'ADMIN'))
+        .set(bearer(adminToken))
         .send({ companyName: 'E2E Company', cuit: '30-12345678-9' })
         .expect(201);
       const body = res.body as { id: string; ownerId: string };
@@ -390,7 +438,7 @@ describe('App (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/companies')
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .send({ companyName: 'Denied Co' })
         .expect(403);
     });
@@ -401,7 +449,7 @@ describe('App (e2e)', () => {
 
       const res = await request(app.getHttpServer())
         .post(`/companies/${companyId}/contacts`)
-        .set(actor(adminId, 'ADMIN'))
+        .set(bearer(adminToken))
         .send({ contactId, roleInCompany: 'CEO', phone: '555-0100' })
         .expect(201);
       const body = res.body as { companyId: string; contactId: string };
@@ -410,7 +458,7 @@ describe('App (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/companies/${companyId}/contacts`)
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .send({ contactId })
         .expect(403);
     });
@@ -419,9 +467,77 @@ describe('App (e2e)', () => {
       const contactId = await createContact();
       await request(app.getHttpServer())
         .post('/companies/999999999999999/contacts')
-        .set(actor(adminId, 'ADMIN'))
+        .set(bearer(adminToken))
         .send({ contactId })
         .expect(404);
+    });
+  });
+
+  describe('authentication', () => {
+    it('issues a token for valid credentials', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ name: `E2E Owner ${RUN}`, password: 'secret-password' })
+        .expect(200);
+      expect((res.body as { accessToken: string }).accessToken).toBeTruthy();
+    });
+
+    it('rejects invalid credentials (401)', () => {
+      return request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ name: `E2E Owner ${RUN}`, password: 'wrong-password' })
+        .expect(401);
+    });
+
+    it('rejects a protected route without a token (401)', () => {
+      return request(app.getHttpServer()).get('/tasks/1').expect(401);
+    });
+  });
+
+  describe('task activities', () => {
+    const createOwnedTask = async (title: string): Promise<string> => {
+      const created = await request(app.getHttpServer())
+        .post('/tasks')
+        .set(bearer(ownerToken))
+        .send({ title, description: 'has follow-up' })
+        .expect(201);
+      return recordTask(
+        created.body as { id: string; ownerId: string; assigneeId: string },
+      ).id;
+    };
+
+    it('lets a task owner log a follow-up activity (201)', async () => {
+      const taskId = await createOwnedTask('With activity');
+
+      const res = await request(app.getHttpServer())
+        .post(`/tasks/${taskId}/activities`)
+        .set(bearer(ownerToken))
+        .send({
+          actionType: 'CALL',
+          status: 'DONE',
+          activityDate: '2026-06-24',
+          description: 'Called the client',
+          nextAction: 'Send proposal',
+          nextActionDate: '2026-06-30',
+        })
+        .expect(201);
+      const body = res.body as { id: string; taskId: string };
+      expect(body.id).toBeTruthy();
+      expect(body.taskId).toBe(taskId);
+    });
+
+    it('forbids logging on a task you cannot view (403)', async () => {
+      const taskId = await createOwnedTask('Owner only');
+
+      await request(app.getHttpServer())
+        .post(`/tasks/${taskId}/activities`)
+        .set(bearer(otherToken))
+        .send({
+          actionType: 'CALL',
+          status: 'DONE',
+          activityDate: '2026-06-24',
+        })
+        .expect(403);
     });
   });
 });
