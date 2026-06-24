@@ -112,7 +112,7 @@ export TEST_DATABASE_URL="$(node -e 'require("dotenv").config({quiet:true}); pro
 ```
 > `config({quiet:true})` es obligatorio o dotenv contamina la URL con su banner.
 
-- **e2e** (`test/app.e2e-spec.ts`): scaffolding por defecto, **tiene un error de tsc preexistente** y no corre en `pnpm test`.
+- **e2e** (`test/app.e2e-spec.ts`): scaffolding por defecto; compila y lintea limpio, pero **no corre en `pnpm test`** (necesita su config e2e y un endpoint `GET /` que hoy no existe).
 
 ---
 
@@ -124,8 +124,8 @@ pnpm build          # nest build && tsc-alias  (output a dist/)
 pnpm start:dev      # watch mode
 pnpm start:prod     # node dist/main
 pnpm test           # jest (integración skippeada salvo TEST_DATABASE_URL)
-pnpm run format     # prettier --write   (ojo: ver nota de line-endings abajo)
-pnpm run lint       # eslint --fix
+pnpm run format     # prettier --write
+pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 ```
 
 ---
@@ -134,8 +134,7 @@ pnpm run lint       # eslint --fix
 
 - **Autenticación real** (login/JWT) reemplazando el `@CurrentActor()` de headers, y enforcement donde haga falta.
 - **`Task.status` en el dominio**: hoy la creación usa el `task_status` de menor id como default; cuando el flujo de estados importe, modelarlo en el agregado en vez de inferirlo en el adaptador.
-- **e2e** roto (tsc) — arreglar o reescribir.
-- **Line-endings**: prettier "warnea" repo-wide por CRLF/LF (preexistente, no introducido por los cambios). Se podría cerrar con un `.gitattributes` (`* text=auto eol=lf`) en un commit aparte.
+- **e2e**: ya compila/lintea, pero falta un endpoint real que ejercitar y su wiring de ejecución (`test:e2e`).
 - Contextos scaffolding vacíos: `companies`, `contacts`, `task-activities`, `task-assignments`.
 
 ### Autorización por rol en creación (implementado)
