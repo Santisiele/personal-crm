@@ -58,11 +58,12 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
   - `PATCH /users/:id/role` — cambiar el rol.
 
 ### Contexto `tasks` (`src/tasks`)
-- **Dominio**: `Task` es una **vista delgada de autorización**: solo `id`, `ownerId`, `assigneeId`. **No modela** `title`/`description`/`status`. `TaskAccessPolicy` (domain service) con `canView` (privilegiado o dueño) y `canReassign` (solo dueño).
+- **Dominio**: `Task` lleva `id` (lo asigna el repositorio en el primer `save`; antes es `null`), `ownerId`, `assigneeId` (puede ser `null` = sin asignar), `title` y `description`. **No modela** historial de asignaciones ni estados. `TaskAccessPolicy` (domain service) con `canView` (privilegiado o dueño), `canReassign` (solo dueño) y `canAssignTo` (uno mismo, o privilegiado para asignar a otro / dejar sin asignar).
 - **Puertos**: `TaskRepository`.
-- **Casos de uso**: `ViewTask`, `ReassignTask`.
-- **Adaptadores**: `InMemoryTaskRepository`, `PrismaTaskRepository`.
+- **Casos de uso**: `CreateTask`, `ViewTask`, `ReassignTask`.
+- **Adaptadores**: `InMemoryTaskRepository` (asigna identidad con un contador), `PrismaTaskRepository`.
 - **Endpoints** (`TasksController`):
+  - `POST /tasks` — crear tarea (`CreateTaskDto`: `title`, `description`, `assigneeId?`). Omitir `assigneeId` → para uno mismo; `null` → sin asignar (solo privilegiados); un id → a ese usuario (solo privilegiados, salvo que sea uno mismo).
   - `GET /tasks/:id` — ver tarea (autorizado por rol/ownership).
   - `PATCH /tasks/:id/assignee` — reasignar (`ReassignTaskDto`, solo el dueño).
 
@@ -83,7 +84,7 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 ## Decisiones de diseño clave (el *por qué*)
 
 1. **Identidad la asigna el repositorio.** El dominio no inventa ids; los crea la DB (autoincrement). `User.assignId` solo se permite una vez.
-2. **`Task` es una vista delgada de autorización.** Por eso el `PrismaTaskRepository.save` **solo persiste reasignaciones de tareas existentes** y **no crea filas `task`** (no hay caso de uso de creación todavía y el agregado no tiene los datos). Mapeo: `ownerId ↔ task.created_by`; `assigneeId ↔ user_id` del `task_assignment` más reciente (si no hay, cae al owner). Reasignar **actualiza la asignación más reciente en su lugar** (no apila historial). Si hubiera que crear la primera fila, `assigned_by = created_by` porque **solo el dueño puede reasignar** (la política lo garantiza).
+2. **`Task` lleva lo justo para autorizar y crear.** Identidad, `ownerId`, `assigneeId` (nullable), `title` y `description`; no modela historial ni estados. `PrismaTaskRepository.save` **despacha por identidad**: sin id → INSERT de la fila `task` (+ un `task_assignment` opcional si tiene assignee); con id → reasignación de una tarea existente. Mapeo: `ownerId ↔ task.created_by`; `assigneeId ↔ user_id` del `task_assignment` más reciente (si no hay, cae al owner **en la lectura**). Reasignar **actualiza la asignación más reciente en su lugar** (no apila historial). Al crear, `assigned_by = created_by` porque el dueño es quien asigna (la política lo garantiza). Como el agregado no modela estados, las filas que requieren uno usan el `status` de menor id como default.
 3. **Hasher con `scrypt` nativo** (`ScryptPasswordHasher`) para no sumar dependencias nativas (bcrypt/argon2). Salt aleatorio por hash, comparación constante.
 4. **Errores → HTTP por polimorfismo**, no por enumerar clases. Agregar un error nuevo solo requiere extender la base correcta; el filtro no se toca (Open/Closed).
 5. **`Actor` en shared kernel** para que `users` no dependa de `tasks`.
@@ -131,19 +132,16 @@ pnpm run lint       # eslint --fix
 
 ## Próximos pasos / deuda conocida
 
-- **`CreateTask` + `POST /tasks`** (el hueco funcional más grande): hoy no se pueden crear tareas. Implica **enriquecer el agregado `Task`** (`title`/`description`/`status`) y eso **habilita el camino de insert** del `PrismaTaskRepository`. Escenarios Gherkin propuestos:
-  - Un usuario crea una tarea (se la asigna a sí mismo) → permitido.
-  - Un admin crea una tarea y se la asigna a otro → permitido.
-  - Un usuario normal intenta asignarla a otro → denegado.
 - **Autenticación real** (login/JWT) reemplazando el `@CurrentActor()` de headers, y enforcement donde haga falta.
+- **`Task.status` en el dominio**: hoy la creación usa el `task_status` de menor id como default; cuando el flujo de estados importe, modelarlo en el agregado en vez de inferirlo en el adaptador.
 - **e2e** roto (tsc) — arreglar o reescribir.
 - **Line-endings**: prettier "warnea" repo-wide por CRLF/LF (preexistente, no introducido por los cambios). Se podría cerrar con un `.gitattributes` (`* text=auto eol=lf`) en un commit aparte.
 - Contextos scaffolding vacíos: `companies`, `contacts`, `task-activities`, `task-assignments`.
 
-### Discusión pendiente: autorización por rol
-Regla a futuro: *cualquiera crea una task (asignada a sí mismo); solo privilegiados (ADMIN/CREATOR) la asignan a otro.*
+### Autorización por rol en creación (implementado)
+Regla: *cualquiera crea una task asignada a sí mismo; solo privilegiados (ADMIN/CREATOR) la asignan a otro o la dejan sin asignar.*
 
-- **Decisión**: va como método del **domain service** `TaskAccessPolicy`, p. ej. `canAssignTo(actor, assigneeId) = assigneeId === actor.id || isPrivileged(actor)` (misma forma que `canView`). **No** como método de `User` (acoplaría User↔Task y lo volvería un god-object de permisos). **Double dispatch no aplica** acá (no hay dos jerarquías de tipos; `Task` no tiene subtipos).
+- **Decisión (aplicada)**: vive como método del **domain service** `TaskAccessPolicy.canAssignTo(actor, assigneeId) = isPrivileged(actor) || assigneeId === actor.id` (misma forma que `canView`; `assigneeId === null` ⇒ sin asignar ⇒ solo privilegiados). **No** como método de `User` (acoplaría User↔Task y lo volvería un god-object de permisos). **Double dispatch no aplica** acá (no hay dos jerarquías de tipos; `Task` no tiene subtipos).
 - **Si las reglas-por-rol proliferan**: recién ahí migrar `UserRole` (enum) a **roles polimórficos** (`AdminRole`/`UserRole`/`CreatorRole` con métodos de capacidad), con el costo de necesitar un factory para reconstruir la subclase desde `user_role.description`. Hoy sería prematuro (YAGNI).
 
 ---
@@ -167,10 +165,10 @@ src/
     users.controller.ts | users.module.ts
   tasks/
     domain/                # Task, TaskAccessPolicy, errores
-    application/           # ViewTask, ReassignTask
+    application/           # CreateTask, ViewTask, ReassignTask
     infrastructure/        # persistence (in-memory, prisma)
-    dto/                   # ReassignTaskDto
-    tests/                 # user-permissions.steps.ts
+    dto/                   # CreateTaskDto, ReassignTaskDto
+    tests/                 # task-creation.steps.ts, user-permissions.steps.ts
     tasks.controller.ts | tasks.module.ts
 specs/                     # *.feature (Gherkin)
 prisma/schema.prisma
