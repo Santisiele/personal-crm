@@ -49,8 +49,8 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 
 ### Contexto `users` (`src/users`)
 - **Dominio**: `User` (la identidad la asigna el repositorio en el primer `save` vía `assignId`; antes el id es `null`), enum `UserRole` (`USER` | `ADMIN` | `CREATOR`).
-- **Puertos**: `UserRepository`, `PasswordHasher`.
-- **Casos de uso**: `CreateUser`, `ChangePassword`, `ChangeUserRole`.
+- **Puertos**: `UserRepository` (con `findById` / `findByName`), `PasswordHasher`.
+- **Casos de uso**: `CreateUser` (rechaza `name` duplicado con `UserNameTakenError` → 409; `name` es único), `ChangePassword`, `ChangeUserRole`.
 - **Adaptadores**: `InMemoryUserRepository`, `PrismaUserRepository` (resuelve el rol contra `user_role.description`), `ScryptPasswordHasher`.
 - **Endpoints** (`UsersController`):
   - `POST /users` — crear usuario (`CreateUserDto`).
@@ -89,9 +89,9 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 
 ### Shared / common / auth
 - `src/shared/domain/actor.ts` — **`Actor`** (`{ id, role }`), kernel compartido entre contextos.
-- `src/shared/domain/domain-error.ts` — jerarquía `DomainError` → `NotFoundError` / `AuthenticationError` / `AuthorizationError` (usa `new.target.name`).
-- `src/common/filters/domain-exception.filter.ts` — `DomainExceptionFilter` global: mapea **por categoría** (`NotFoundError`→404, `AuthenticationError`→401, `AuthorizationError`→403). Los controllers **no hacen try/catch**.
-- `src/auth/` — **autenticación JWT real**. `POST /auth/login` (público) busca el usuario por `name`, verifica la contraseña (`ScryptPasswordHasher`) y emite un JWT `{ sub, role }` firmado con `jsonwebtoken` (secreto en `JWT_SECRET`, con fallback de dev). Un **guard global** (`JwtAuthGuard` vía `APP_GUARD`) verifica el Bearer y setea `request.user`; `@CurrentActor()` lo lee. Rutas públicas con `@Public()` (`POST /auth/login`, `POST /users`, `GET /`); **el resto exige token**. `UserRepository` ganó `findByName`.
+- `src/shared/domain/domain-error.ts` — jerarquía `DomainError` → `NotFoundError` / `AuthenticationError` / `AuthorizationError` / `ConflictError` (usa `new.target.name`).
+- `src/common/filters/domain-exception.filter.ts` — `DomainExceptionFilter` global: mapea **por categoría** (`NotFoundError`→404, `AuthenticationError`→401, `AuthorizationError`→403, `ConflictError`→409). Los controllers **no hacen try/catch**.
+- `src/auth/` — **autenticación JWT real**. `POST /auth/login` (público) busca el usuario por `name`, verifica la contraseña (`ScryptPasswordHasher`) y emite un JWT `{ sub, role }` firmado con `jsonwebtoken` (secreto en `JWT_SECRET`, con fallback de dev). Un **guard global** (`JwtAuthGuard` vía `APP_GUARD`) verifica el Bearer y setea `request.user`; `@CurrentActor()` lo lee. Rutas públicas con `@Public()` (`POST /auth/login`, `POST /users`, `GET /`); **el resto exige token**. `UserRepository` ganó `findByName`; `name` es **único** (índice en DB), así que identifica sin ambigüedad.
 - Scaffolding aún vacío: `task-assignments` (historial de asignaciones).
 
 ### Configuración transversal (`AppModule`)
@@ -108,7 +108,7 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 3. **Hasher con `scrypt` nativo** (`ScryptPasswordHasher`) para no sumar dependencias nativas (bcrypt/argon2). Salt aleatorio por hash, comparación constante.
 4. **Errores → HTTP por polimorfismo**, no por enumerar clases. Agregar un error nuevo solo requiere extender la base correcta; el filtro no se toca (Open/Closed).
 5. **`Actor` en shared kernel** para que `users` no dependa de `tasks`.
-6. **Auth JWT** (implementado): el seam `@CurrentActor()` ahora lee `request.user` que setea el `JwtAuthGuard` global; se entra con `POST /auth/login` → Bearer token. `POST /users` y `GET /` son `@Public()` (bootstrap); el resto exige token. **Login por `name`**: el modelo no tiene email/username único, así que `findByName` (findFirst) devuelve el primero si hay nombres repetidos — migrar a un identificador único es deuda. Se usó `jsonwebtoken` y **no** `@nestjs/jwt` (este arrastraba un `@nestjs/common` duplicado que rompía la DI de Nest).
+6. **Auth JWT** (implementado): el seam `@CurrentActor()` ahora lee `request.user` que setea el `JwtAuthGuard` global; se entra con `POST /auth/login` → Bearer token. `POST /users` y `GET /` son `@Public()` (bootstrap); el resto exige token. **Login por `name`**, que es **único** (`@unique` + índice `app_user_name_key`); `CreateUser` rechaza duplicados con `UserNameTakenError` (→409) antes de guardar, y la DB es el backstop. Se usó `jsonwebtoken` y **no** `@nestjs/jwt` (este arrastraba un `@nestjs/common` duplicado que rompía la DI de Nest).
 7. **Alias `@` + `tsc-alias`** porque `tsc` no reescribe los alias en el output CommonJS; sin esto, `require('@/..')` rompería en runtime.
 
 ---
@@ -153,7 +153,8 @@ pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 
 ## Próximos pasos / deuda conocida
 
-- **Identificador de login único** (email o username) en `app_user`: hoy se entra por `name`, que no es único. Mientras tanto, setear `JWT_SECRET` en cualquier entorno real (el fallback es solo para dev).
+- **Login identifier**: hoy se entra por `name` (ya único). Un `email`/`username` dedicado sería más amigable que el nombre de la persona, pero funciona. Setear `JWT_SECRET` en cualquier entorno real (el fallback es solo para dev).
+- **DB sin migraciones versionadas**: el índice único `app_user_name_key` se aplicó a mano sobre la dev DB para matchear el `@unique` del schema. Si en algún momento se adopta `prisma migrate`, formalizarlo.
 - **`Task.status` en el dominio**: hoy la creación usa el `task_status` de menor id como default; cuando el flujo de estados importe, modelarlo en el agregado en vez de inferirlo en el adaptador.
 - **e2e**: cubre `GET /`, tareas (crear/ver/reasignar/archivar con sus 200/201/204/400/403/404), `users` (password/rol), `contacts`, `companies` y el vínculo contacto↔empresa. Todo contra la DB real y self-cleaning.
 - **Lookups del archivado**: el adaptador resuelve `activity_status='DELETED'` y `action_type='ARCHIVE'` por descripción y falla si faltan (hay que seedearlos). Cuando se modele `task_activity` en serio, formalizar estos lookups.
