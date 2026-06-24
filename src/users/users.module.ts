@@ -17,6 +17,9 @@ import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
  * Composition root for the users context. Binds the driven ports to their
  * production adapters and wires the application services via factories, so the
  * domain and application layers stay free of any NestJS dependency.
+ *
+ * The USER_REPOSITORY and PASSWORD_HASHER tokens are re-exported so that other
+ * contexts (e.g. AuthModule) can compose against the same driven ports.
  */
 @Module({
   providers: [
@@ -48,6 +51,12 @@ import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
     },
   ],
   controllers: [UsersController],
-  exports: [CreateUser, ChangePassword, ChangeUserRole],
+  exports: [
+    CreateUser,
+    ChangePassword,
+    ChangeUserRole,
+    USER_REPOSITORY,
+    PASSWORD_HASHER,
+  ],
 })
 export class UsersModule {}

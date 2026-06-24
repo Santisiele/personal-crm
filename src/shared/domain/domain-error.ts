@@ -17,3 +17,6 @@ export abstract class NotFoundError extends DomainError {}
 
 /** The actor is not allowed to perform the attempted action. */
 export abstract class AuthorizationError extends DomainError {}
+
+/** The actor could not be authenticated (e.g. bad credentials). */
+export abstract class AuthenticationError extends DomainError {}

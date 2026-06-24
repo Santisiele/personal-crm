@@ -8,6 +8,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { CurrentActor } from '@/auth/current-actor.decorator';
+import { Public } from '@/auth/public.decorator';
 import type { Actor } from '@/shared/domain/actor';
 import { CreateUser } from '@/users/application/create-user.use-case';
 import { ChangePassword } from '@/users/application/change-password.use-case';
@@ -24,6 +25,7 @@ export class UsersController {
     private readonly changeUserRole: ChangeUserRole,
   ) {}
 
+  @Public()
   @Post()
   async create(@Body() body: CreateUserDto) {
     const user = await this.createUser.execute({

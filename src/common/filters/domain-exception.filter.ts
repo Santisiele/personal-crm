@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import {
+  AuthenticationError,
   AuthorizationError,
   DomainError,
   NotFoundError,
@@ -33,6 +34,9 @@ export class DomainExceptionFilter implements ExceptionFilter {
   private statusFor(error: DomainError): HttpStatus {
     if (error instanceof NotFoundError) {
       return HttpStatus.NOT_FOUND;
+    }
+    if (error instanceof AuthenticationError) {
+      return HttpStatus.UNAUTHORIZED;
     }
     if (error instanceof AuthorizationError) {
       return HttpStatus.FORBIDDEN;

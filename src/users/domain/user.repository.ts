@@ -7,6 +7,7 @@ import { User, UserId } from '@/users/domain/user';
 export interface UserRepository {
   save(user: User): Promise<void>;
   findById(id: UserId): Promise<User | null>;
+  findByName(name: string): Promise<User | null>;
 }
 
 export const USER_REPOSITORY = Symbol('UserRepository');

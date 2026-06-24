@@ -54,6 +54,22 @@ export class PrismaUserRepository implements UserRepository {
     });
   }
 
+  async findByName(name: string): Promise<User | null> {
+    const row = await this.prisma.app_user.findFirst({
+      where: { name },
+      include: { user_role: true },
+    });
+    if (!row) {
+      return null;
+    }
+    return User.rehydrate({
+      id: row.id.toString(),
+      name: row.name,
+      role: this.toUserRole(row.user_role.description),
+      passwordHash: row.user_password_hash,
+    });
+  }
+
   private async resolveRoleId(role: UserRole): Promise<bigint> {
     const row = await this.prisma.user_role.findFirst({
       where: { description: role },
