@@ -82,12 +82,17 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
   - `POST /companies` — crear empresa (**solo ADMIN/CREATOR**; el creador es el dueño).
   - `POST /companies/:id/contacts` — vincular un contacto existente (`LinkContactDto`: `contactId`, `roleInCompany?`, `phone?`). Solo privilegiados; 404 si la empresa o el contacto no existen. `CompaniesModule` importa `ContactsModule` para reusar el `ContactRepository`.
 
+### Contexto `task-activities` (`src/task-activities`)
+- **Dominio**: `TaskActivity` (id repo-asignado; `taskId`, `authorId` = actor, `activityDate` ISO, `actionType`/`status` por descripción, `description?`, `nextAction?`, `nextActionDate?`).
+- **Casos de uso**: `LogTaskActivity` — carga la tarea (`TaskRepository` del contexto `tasks`), exige `TaskAccessPolicy.canView` (dueño o privilegiado), y guarda. `actionType`/`status` se resuelven contra `action_type`/`activity_status` por descripción.
+- **Endpoint**: `POST /tasks/:taskId/activities` (`LogTaskActivityDto`). `TaskActivitiesModule` importa `TasksModule` (que ahora exporta `TASK_REPOSITORY`).
+
 ### Shared / common / auth
 - `src/shared/domain/actor.ts` — **`Actor`** (`{ id, role }`), kernel compartido entre contextos.
-- `src/shared/domain/domain-error.ts` — jerarquía `DomainError` → `NotFoundError` / `AuthorizationError` (usa `new.target.name`).
-- `src/common/filters/domain-exception.filter.ts` — `DomainExceptionFilter` global: mapea **por categoría** (`NotFoundError`→404, `AuthorizationError`→403). Los controllers **no hacen try/catch**.
-- `src/auth/` — **vacío (placeholder)**. El `Actor` se obtiene con el decorator `@CurrentActor()` que hoy lee los headers `x-user-id` / `x-user-role`. **La autenticación NO está implementada ni hay enforcement.**
-- Scaffolding aún vacío: `task-activities`, `task-assignments` (el resto de `task_activity` más allá del archivado; el historial de asignaciones).
+- `src/shared/domain/domain-error.ts` — jerarquía `DomainError` → `NotFoundError` / `AuthenticationError` / `AuthorizationError` (usa `new.target.name`).
+- `src/common/filters/domain-exception.filter.ts` — `DomainExceptionFilter` global: mapea **por categoría** (`NotFoundError`→404, `AuthenticationError`→401, `AuthorizationError`→403). Los controllers **no hacen try/catch**.
+- `src/auth/` — **autenticación JWT real**. `POST /auth/login` (público) busca el usuario por `name`, verifica la contraseña (`ScryptPasswordHasher`) y emite un JWT `{ sub, role }` firmado con `jsonwebtoken` (secreto en `JWT_SECRET`, con fallback de dev). Un **guard global** (`JwtAuthGuard` vía `APP_GUARD`) verifica el Bearer y setea `request.user`; `@CurrentActor()` lo lee. Rutas públicas con `@Public()` (`POST /auth/login`, `POST /users`, `GET /`); **el resto exige token**. `UserRepository` ganó `findByName`.
+- Scaffolding aún vacío: `task-assignments` (historial de asignaciones).
 
 ### Configuración transversal (`AppModule`)
 - `APP_FILTER` → `DomainExceptionFilter`.
@@ -103,7 +108,7 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 3. **Hasher con `scrypt` nativo** (`ScryptPasswordHasher`) para no sumar dependencias nativas (bcrypt/argon2). Salt aleatorio por hash, comparación constante.
 4. **Errores → HTTP por polimorfismo**, no por enumerar clases. Agregar un error nuevo solo requiere extender la base correcta; el filtro no se toca (Open/Closed).
 5. **`Actor` en shared kernel** para que `users` no dependa de `tasks`.
-6. **Auth diferida**: `@CurrentActor()` por headers es un **seam único** a reemplazar cuando exista auth real. `POST /users` y `PATCH /users/:id/role` hoy **no exigen** actor (consistente con "enforcement cuando un escenario lo pida").
+6. **Auth JWT** (implementado): el seam `@CurrentActor()` ahora lee `request.user` que setea el `JwtAuthGuard` global; se entra con `POST /auth/login` → Bearer token. `POST /users` y `GET /` son `@Public()` (bootstrap); el resto exige token. **Login por `name`**: el modelo no tiene email/username único, así que `findByName` (findFirst) devuelve el primero si hay nombres repetidos — migrar a un identificador único es deuda. Se usó `jsonwebtoken` y **no** `@nestjs/jwt` (este arrastraba un `@nestjs/common` duplicado que rompía la DI de Nest).
 7. **Alias `@` + `tsc-alias`** porque `tsc` no reescribe los alias en el output CommonJS; sin esto, `require('@/..')` rompería en runtime.
 
 ---
@@ -127,7 +132,7 @@ export TEST_DATABASE_URL="$(node -e 'require("dotenv").config({quiet:true}); pro
 ```
 > `config({quiet:true})` es obligatorio o dotenv contamina la URL con su banner.
 
-- **e2e** (`test/app.e2e-spec.ts`): corre con **`pnpm test:e2e`** (config propia `test/jest-e2e.json`, fuera de `pnpm test`). Levanta el `AppModule` real **contra la DB** (carga `.env` vía `test/setup-e2e.ts`) y ejercita el stack completo: `GET /` (smoke) y un flujo real de tareas (`POST /users` → `POST /tasks` → `GET /tasks/:id`) pasando por el pipe, el `@CurrentActor` (headers), el use case y Prisma. **Crea y borra sus propias filas** (la dev DB es descartable).
+- **e2e** (`test/app.e2e-spec.ts`): corre con **`pnpm test:e2e`** (config propia `test/jest-e2e.json`, fuera de `pnpm test`). Levanta el `AppModule` real **contra la DB** (carga `.env` vía `test/setup-e2e.ts`) y ejercita el stack completo con **auth JWT real**: cada usuario hace `POST /auth/login` y manda Bearer token; cubre tareas, users, contactos, empresas, el vínculo, actividades y login (200/401). **Crea y borra sus propias filas** (la dev DB es descartable); usa un sufijo único por corrida en los nombres de usuario.
 
 ---
 
@@ -148,11 +153,11 @@ pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 
 ## Próximos pasos / deuda conocida
 
-- **Autenticación real** (login/JWT) reemplazando el `@CurrentActor()` de headers, y enforcement donde haga falta.
+- **Identificador de login único** (email o username) en `app_user`: hoy se entra por `name`, que no es único. Mientras tanto, setear `JWT_SECRET` en cualquier entorno real (el fallback es solo para dev).
 - **`Task.status` en el dominio**: hoy la creación usa el `task_status` de menor id como default; cuando el flujo de estados importe, modelarlo en el agregado en vez de inferirlo en el adaptador.
 - **e2e**: cubre `GET /`, tareas (crear/ver/reasignar/archivar con sus 200/201/204/400/403/404), `users` (password/rol), `contacts`, `companies` y el vínculo contacto↔empresa. Todo contra la DB real y self-cleaning.
 - **Lookups del archivado**: el adaptador resuelve `activity_status='DELETED'` y `action_type='ARCHIVE'` por descripción y falla si faltan (hay que seedearlos). Cuando se modele `task_activity` en serio, formalizar estos lookups.
-- Contextos scaffolding vacíos: `task-activities` (seguimiento general más allá del archivado), `task-assignments` (historial de asignaciones).
+- Contexto scaffolding vacío: `task-assignments` (historial de asignaciones).
 
 ### Autorización por rol en creación (implementado)
 Regla: *cualquiera crea una task asignada a sí mismo; solo privilegiados (ADMIN/CREATOR) la asignan a otro o la dejan sin asignar.*
@@ -170,7 +175,7 @@ src/
   main.ts
   shared/domain/           # Actor, DomainError (kernel compartido)
   common/filters/          # DomainExceptionFilter (HTTP)
-  auth/                    # placeholder + current-actor.decorator.ts
+  auth/                    # JWT: login, JwtAuthGuard (global), @Public, @CurrentActor
   prisma/                  # PrismaModule (@Global), PrismaService
   users/
     domain/                # User, UserRole, puertos (UserRepository, PasswordHasher), errores
@@ -194,7 +199,8 @@ src/
     application/           # CreateCompany, LinkContactToCompany
     infrastructure/ dto/ tests/
     companies.controller.ts | companies.module.ts
-test/                      # app.e2e-spec.ts (e2e real-DB), setup-e2e.ts, jest-e2e.json
+  task-activities/         # TaskActivity, LogTaskActivity (POST /tasks/:id/activities)
+test/                      # app.e2e-spec.ts (e2e real-DB, JWT), setup-e2e.ts, jest-e2e.json
 specs/                     # *.feature (Gherkin)
 prisma/schema.prisma
 ```
