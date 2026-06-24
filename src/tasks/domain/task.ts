@@ -12,7 +12,8 @@ export class Task {
     private _assigneeId: string,
   ) {}
 
-  static create(props: {
+  /** Reconstitutes an already-persisted task from a repository. */
+  static rehydrate(props: {
     id: TaskId;
     ownerId: string;
     assigneeId?: string;

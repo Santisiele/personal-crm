@@ -33,13 +33,13 @@ defineFeature(feature, (test) => {
 
   const aTaskBelongsToAnotherUser = (and: any) =>
     and('a task belongs to another user', async () => {
-      task = Task.create({ id: 'task-1', ownerId: ANOTHER_USER_ID });
+      task = Task.rehydrate({ id: 'task-1', ownerId: ANOTHER_USER_ID });
       await tasks.save(task);
     });
 
   const theTaskBelongsToThatUser = (and: any) =>
     and('the task belongs to that user', async () => {
-      task = Task.create({ id: 'task-1', ownerId: actor.id });
+      task = Task.rehydrate({ id: 'task-1', ownerId: actor.id });
       await tasks.save(task);
     });
 

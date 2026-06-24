@@ -14,7 +14,7 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 
 ---
 
-## Principios y convenciones (LEER PRIMERO)
+## Principios y convenciones
 
 ### Arquitectura hexagonal
 - El **dominio** y la **aplicación** (casos de uso) **no dependen de NestJS** ni de Prisma. Solo dependen de **puertos** (interfaces).

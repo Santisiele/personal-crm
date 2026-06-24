@@ -14,7 +14,7 @@ import { TaskRepository } from '@/tasks/domain/task.repository';
  *  - `ownerId` maps to `task.created_by`.
  *  - `assigneeId` maps to the `user_id` of the most recent `task_assignment`
  *    row; a task with no assignment falls back to its owner, mirroring the
- *    domain default (`Task.create` assigns to the owner when none is given).
+ *    domain default (`Task.rehydrate` assigns to the owner when none is given).
  *
  * Consequently `save` only persists a reassignment of an EXISTING task; it does
  * not create `task` rows (there is no such use case and the aggregate carries
@@ -63,7 +63,7 @@ export class PrismaTaskRepository implements TaskRepository {
       return null;
     }
     const current = await this.currentAssignment(id);
-    return Task.create({
+    return Task.rehydrate({
       id: row.id.toString(),
       ownerId: row.created_by.toString(),
       assigneeId: current
