@@ -8,8 +8,8 @@ import { PrismaService } from './../src/prisma/prisma.service';
 /**
  * End-to-end tests for the user directory (GET /users and GET /users/:id)
  * against the REAL database (the disposable Supabase dev DB). They exercise the
- * full stack: HTTP → ValidationPipe → @CurrentActor headers → use case → Prisma
- * → Postgres. Every row created here is cleaned up afterwards.
+ * full stack: HTTP → JwtAuthGuard (Bearer) → ValidationPipe → @CurrentActor →
+ * use case → Prisma → Postgres. Every row created here is cleaned up afterwards.
  *
  * A unique suffix per run keeps the created users isolated from other runs.
  */
@@ -23,13 +23,19 @@ describe('User directory (e2e)', () => {
   let ownerId: string;
   let otherId: string;
   let adminId: string;
+  let ownerToken: string;
+  let adminToken: string;
   const createdUserIds: string[] = [];
 
-  // Acts via the current actor header seam (id + role).
-  const actor = (id: string, role: string) => ({
-    'x-user-id': id,
-    'x-user-role': role,
-  });
+  const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+  const login = async (name: string): Promise<string> => {
+    const res = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ name, password: 'secret-password' })
+      .expect(200);
+    return (res.body as { accessToken: string }).accessToken;
+  };
 
   const createUser = async (name: string, role: string): Promise<string> => {
     const res = await request(app.getHttpServer())
@@ -53,6 +59,8 @@ describe('User directory (e2e)', () => {
     ownerId = await createUser(`E2E Dir Owner ${RUN}`, 'USER');
     otherId = await createUser(`E2E Dir Other ${RUN}`, 'USER');
     adminId = await createUser(`E2E Dir Admin ${RUN}`, 'ADMIN');
+    ownerToken = await login(`E2E Dir Owner ${RUN}`);
+    adminToken = await login(`E2E Dir Admin ${RUN}`);
   });
 
   afterAll(async () => {
@@ -68,7 +76,7 @@ describe('User directory (e2e)', () => {
     it('lets an admin list users and never exposes a password hash', async () => {
       const res = await request(app.getHttpServer())
         .get('/users')
-        .set(actor(adminId, 'ADMIN'))
+        .set(bearer(adminToken))
         .expect(200);
 
       const body = res.body as Array<Record<string, unknown>>;
@@ -84,7 +92,7 @@ describe('User directory (e2e)', () => {
     it('forbids a plain user from listing users (403)', () => {
       return request(app.getHttpServer())
         .get('/users')
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .expect(403);
     });
   });
@@ -93,7 +101,7 @@ describe('User directory (e2e)', () => {
     it('lets an admin view any user with a hash-free view', async () => {
       const res = await request(app.getHttpServer())
         .get(`/users/${otherId}`)
-        .set(actor(adminId, 'ADMIN'))
+        .set(bearer(adminToken))
         .expect(200);
 
       const body = res.body as Record<string, unknown>;
@@ -107,7 +115,7 @@ describe('User directory (e2e)', () => {
     it('lets a user view their own profile', () => {
       return request(app.getHttpServer())
         .get(`/users/${ownerId}`)
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .expect(200)
         .expect({
           id: ownerId,
@@ -119,14 +127,14 @@ describe('User directory (e2e)', () => {
     it('forbids a user from viewing another user (403)', () => {
       return request(app.getHttpServer())
         .get(`/users/${otherId}`)
-        .set(actor(ownerId, 'USER'))
+        .set(bearer(ownerToken))
         .expect(403);
     });
 
     it('returns 404 for a user that does not exist', () => {
       return request(app.getHttpServer())
         .get('/users/999999999999999')
-        .set(actor(adminId, 'ADMIN'))
+        .set(bearer(adminToken))
         .expect(404);
     });
   });
