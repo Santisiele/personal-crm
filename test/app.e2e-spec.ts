@@ -23,6 +23,8 @@ describe('App (e2e)', () => {
   let seededTaskStatusId: bigint | null = null;
   let seededAssignmentStatusId: bigint | null = null;
   let seededCompanyStatusId: bigint | null = null;
+  let seededActivityStatusId: bigint | null = null;
+  let seededActionTypeId: bigint | null = null;
   const createdTaskIds: bigint[] = [];
   const createdUserIds: string[] = [];
   const createdContactIds: bigint[] = [];
@@ -72,6 +74,28 @@ describe('App (e2e)', () => {
       });
       seededCompanyStatusId = status.id;
     }
+    // Archiving records a task_activity whose status marks it deleted; ensure the
+    // lookup rows the adapter resolves by description exist.
+    if (
+      !(await prisma.activity_status.findFirst({
+        where: { description: 'DELETED' },
+      }))
+    ) {
+      const status = await prisma.activity_status.create({
+        data: { description: 'DELETED' },
+      });
+      seededActivityStatusId = status.id;
+    }
+    if (
+      !(await prisma.action_type.findFirst({
+        where: { description: 'ARCHIVE' },
+      }))
+    ) {
+      const type = await prisma.action_type.create({
+        data: { description: 'ARCHIVE' },
+      });
+      seededActionTypeId = type.id;
+    }
 
     ownerId = await createUser('E2E Owner', 'USER');
     otherId = await createUser('E2E Other', 'USER');
@@ -81,6 +105,9 @@ describe('App (e2e)', () => {
   afterAll(async () => {
     if (createdTaskIds.length > 0) {
       await prisma.task_assignment.deleteMany({
+        where: { task_id: { in: createdTaskIds } },
+      });
+      await prisma.task_activity.deleteMany({
         where: { task_id: { in: createdTaskIds } },
       });
       await prisma.task.deleteMany({ where: { id: { in: createdTaskIds } } });
@@ -116,6 +143,16 @@ describe('App (e2e)', () => {
     if (seededCompanyStatusId) {
       await prisma.company_status.deleteMany({
         where: { id: seededCompanyStatusId },
+      });
+    }
+    if (seededActivityStatusId) {
+      await prisma.activity_status.deleteMany({
+        where: { id: seededActivityStatusId },
+      });
+    }
+    if (seededActionTypeId) {
+      await prisma.action_type.deleteMany({
+        where: { id: seededActionTypeId },
       });
     }
     await app.close();
@@ -243,6 +280,44 @@ describe('App (e2e)', () => {
         .patch(`/tasks/${taskId}/assignee`)
         .set(actor(otherId, 'USER'))
         .send({ newAssigneeId: adminId })
+        .expect(403);
+    });
+  });
+
+  describe('archiving', () => {
+    const createOwnedTask = async (title: string): Promise<string> => {
+      const created = await request(app.getHttpServer())
+        .post('/tasks')
+        .set(actor(ownerId, 'USER'))
+        .send({ title, description: 'to be archived' })
+        .expect(201);
+      return recordTask(
+        created.body as { id: string; ownerId: string; assigneeId: string },
+      ).id;
+    };
+
+    it('lets the owner archive their task; it is then no longer found (404)', async () => {
+      const taskId = await createOwnedTask('Archive me');
+
+      await request(app.getHttpServer())
+        .post(`/tasks/${taskId}/archive`)
+        .set(actor(ownerId, 'USER'))
+        .send({ reason: 'No longer needed' })
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get(`/tasks/${taskId}`)
+        .set(actor(ownerId, 'USER'))
+        .expect(404);
+    });
+
+    it('forbids a non-owner from archiving a task (403)', async () => {
+      const taskId = await createOwnedTask('Owner only');
+
+      await request(app.getHttpServer())
+        .post(`/tasks/${taskId}/archive`)
+        .set(actor(otherId, 'USER'))
+        .send({ reason: 'sneaky' })
         .expect(403);
     });
   });
