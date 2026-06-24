@@ -6,6 +6,7 @@ import {
   TaskRepository,
 } from '@/tasks/domain/task.repository';
 import { PrismaTaskRepository } from '@/tasks/infrastructure/persistence/prisma-task.repository';
+import { CreateTask } from '@/tasks/application/create-task.use-case';
 import { ViewTask } from '@/tasks/application/view-task.use-case';
 import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
 
@@ -22,6 +23,11 @@ import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
       inject: [PrismaService],
     },
     {
+      provide: CreateTask,
+      useFactory: (tasks: TaskRepository) => new CreateTask(tasks),
+      inject: [TASK_REPOSITORY],
+    },
+    {
       provide: ViewTask,
       useFactory: (tasks: TaskRepository) => new ViewTask(tasks),
       inject: [TASK_REPOSITORY],
@@ -33,6 +39,6 @@ import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
     },
   ],
   controllers: [TasksController],
-  exports: [ViewTask, ReassignTask],
+  exports: [CreateTask, ViewTask, ReassignTask],
 })
 export class TasksModule {}
