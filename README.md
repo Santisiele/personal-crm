@@ -112,7 +112,7 @@ export TEST_DATABASE_URL="$(node -e 'require("dotenv").config({quiet:true}); pro
 ```
 > `config({quiet:true})` es obligatorio o dotenv contamina la URL con su banner.
 
-- **e2e** (`test/app.e2e-spec.ts`): scaffolding por defecto; compila y lintea limpio, pero **no corre en `pnpm test`** (necesita su config e2e y un endpoint `GET /` que hoy no existe).
+- **e2e** (`test/app.e2e-spec.ts`): corre con **`pnpm test:e2e`** (config propia `test/jest-e2e.json`, fuera de `pnpm test`). Levanta el `AppModule` real y ejercita `GET /` (200 + `Hello World!`). `PrismaService` va **stubeado** (`overrideProvider`) porque el endpoint raíz no toca persistencia: así el e2e es rápido y no abre conexión a la DB.
 
 ---
 
@@ -124,6 +124,7 @@ pnpm build          # nest build && tsc-alias  (output a dist/)
 pnpm start:dev      # watch mode
 pnpm start:prod     # node dist/main
 pnpm test           # jest (integración skippeada salvo TEST_DATABASE_URL)
+pnpm test:e2e       # jest e2e (test/jest-e2e.json) — AppModule real, Prisma stubeado
 pnpm run format     # prettier --write
 pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 ```
@@ -134,7 +135,7 @@ pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 
 - **Autenticación real** (login/JWT) reemplazando el `@CurrentActor()` de headers, y enforcement donde haga falta.
 - **`Task.status` en el dominio**: hoy la creación usa el `task_status` de menor id como default; cuando el flujo de estados importe, modelarlo en el agregado en vez de inferirlo en el adaptador.
-- **e2e**: ya compila/lintea, pero falta un endpoint real que ejercitar y su wiring de ejecución (`test:e2e`).
+- **e2e**: hoy solo cubre `GET /` (smoke). Falta cobertura e2e de los endpoints reales (`tasks`/`users`), que necesitarían una DB de test o stubs de repositorios.
 - Contextos scaffolding vacíos: `companies`, `contacts`, `task-activities`, `task-assignments`.
 
 ### Autorización por rol en creación (implementado)
