@@ -7,6 +7,7 @@ import { Company, CompanyId } from '@/companies/domain/company';
 export interface CompanyRepository {
   save(company: Company): Promise<void>;
   findById(id: CompanyId): Promise<Company | null>;
+  findAll(): Promise<Company[]>;
 }
 
 export const COMPANY_REPOSITORY = Symbol('CompanyRepository');

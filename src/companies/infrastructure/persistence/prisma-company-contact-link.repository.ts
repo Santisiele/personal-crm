@@ -23,4 +23,20 @@ export class PrismaCompanyContactLinkRepository implements CompanyContactLinkRep
       link.assignId(created.id.toString());
     }
   }
+
+  async findByCompanyId(companyId: string): Promise<CompanyContactLink[]> {
+    const rows = await this.prisma.contact_x_company.findMany({
+      where: { company_id: BigInt(companyId) },
+      orderBy: { id: 'asc' },
+    });
+    return rows.map((row) =>
+      CompanyContactLink.rehydrate({
+        id: row.id.toString(),
+        companyId: row.company_id.toString(),
+        contactId: row.contact_id.toString(),
+        roleInCompany: row.role_in_company,
+        phone: row.phone,
+      }),
+    );
+  }
 }

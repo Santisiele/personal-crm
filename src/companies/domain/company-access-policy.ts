@@ -18,6 +18,16 @@ export class CompanyAccessPolicy {
     return this.isPrivileged(actor);
   }
 
+  /** Editing a company's fields is managing it, so same rule as creation. */
+  canEdit(actor: Actor): boolean {
+    return this.isPrivileged(actor);
+  }
+
+  /** Transitioning a company's status is managing it; same rule as creation. */
+  canChangeStatus(actor: Actor): boolean {
+    return this.isPrivileged(actor);
+  }
+
   private isPrivileged(actor: Actor): boolean {
     return CompanyAccessPolicy.PRIVILEGED_ROLES.includes(actor.role);
   }

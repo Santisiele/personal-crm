@@ -6,6 +6,7 @@ import { CompanyContactLink } from '@/companies/domain/company-contact-link';
  */
 export interface CompanyContactLinkRepository {
   save(link: CompanyContactLink): Promise<void>;
+  findByCompanyId(companyId: string): Promise<CompanyContactLink[]>;
 }
 
 export const COMPANY_CONTACT_LINK_REPOSITORY = Symbol(

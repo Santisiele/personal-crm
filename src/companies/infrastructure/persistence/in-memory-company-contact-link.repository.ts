@@ -17,4 +17,10 @@ export class InMemoryCompanyContactLinkRepository implements CompanyContactLinkR
     this.links.push(link);
     return Promise.resolve();
   }
+
+  findByCompanyId(companyId: string): Promise<CompanyContactLink[]> {
+    return Promise.resolve(
+      this.links.filter((link) => link.companyId === companyId),
+    );
+  }
 }

@@ -18,6 +18,10 @@ import { PrismaCompanyRepository } from '@/companies/infrastructure/persistence/
 import { PrismaCompanyContactLinkRepository } from '@/companies/infrastructure/persistence/prisma-company-contact-link.repository';
 import { CreateCompany } from '@/companies/application/create-company.use-case';
 import { LinkContactToCompany } from '@/companies/application/link-contact-to-company.use-case';
+import { ListCompanies } from '@/companies/application/list-companies.use-case';
+import { ViewCompany } from '@/companies/application/view-company.use-case';
+import { EditCompany } from '@/companies/application/edit-company.use-case';
+import { ChangeCompanyStatus } from '@/companies/application/change-company-status.use-case';
 
 /**
  * Composition root for the companies context. Binds the repository ports to
@@ -59,8 +63,45 @@ import { LinkContactToCompany } from '@/companies/application/link-contact-to-co
         COMPANY_CONTACT_LINK_REPOSITORY,
       ],
     },
+    {
+      provide: ListCompanies,
+      useFactory: (companies: CompanyRepository) =>
+        new ListCompanies(companies),
+      inject: [COMPANY_REPOSITORY],
+    },
+    {
+      provide: ViewCompany,
+      useFactory: (
+        companies: CompanyRepository,
+        links: CompanyContactLinkRepository,
+        contacts: ContactRepository,
+      ) => new ViewCompany(companies, links, contacts),
+      inject: [
+        COMPANY_REPOSITORY,
+        COMPANY_CONTACT_LINK_REPOSITORY,
+        CONTACT_REPOSITORY,
+      ],
+    },
+    {
+      provide: EditCompany,
+      useFactory: (companies: CompanyRepository) => new EditCompany(companies),
+      inject: [COMPANY_REPOSITORY],
+    },
+    {
+      provide: ChangeCompanyStatus,
+      useFactory: (companies: CompanyRepository) =>
+        new ChangeCompanyStatus(companies),
+      inject: [COMPANY_REPOSITORY],
+    },
   ],
   controllers: [CompaniesController],
-  exports: [CreateCompany, LinkContactToCompany],
+  exports: [
+    CreateCompany,
+    LinkContactToCompany,
+    ListCompanies,
+    ViewCompany,
+    EditCompany,
+    ChangeCompanyStatus,
+  ],
 })
 export class CompaniesModule {}

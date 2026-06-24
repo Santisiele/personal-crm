@@ -24,4 +24,8 @@ export class InMemoryCompanyRepository implements CompanyRepository {
   findById(id: CompanyId): Promise<Company | null> {
     return Promise.resolve(this.companies.get(id) ?? null);
   }
+
+  findAll(): Promise<Company[]> {
+    return Promise.resolve([...this.companies.values()]);
+  }
 }
