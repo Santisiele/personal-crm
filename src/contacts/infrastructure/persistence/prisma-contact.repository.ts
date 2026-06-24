@@ -46,6 +46,20 @@ export class PrismaContactRepository implements ContactRepository {
     if (!row) {
       return null;
     }
+    return this.toDomain(row);
+  }
+
+  async findAll(): Promise<Contact[]> {
+    const rows = await this.prisma.contact.findMany({ orderBy: { id: 'asc' } });
+    return rows.map((row) => this.toDomain(row));
+  }
+
+  private toDomain(row: {
+    id: bigint;
+    contact_name: string;
+    email: string | null;
+    birth: Date | null;
+  }): Contact {
     return Contact.rehydrate({
       id: row.id.toString(),
       contactName: row.contact_name,

@@ -60,4 +60,13 @@ describeIfDb('PrismaContactRepository (integration)', () => {
     expect(reloaded!.email).toBeNull();
     expect(reloaded!.birth).toBeNull();
   });
+
+  it('lists contacts, including ones it created', async () => {
+    const contact = Contact.create({ contactName: 'Listed Contact' });
+    await repository.save(contact);
+    createdIds.push(BigInt(contact.id!));
+
+    const all = await repository.findAll();
+    expect(all.some((c) => c.id === contact.id)).toBe(true);
+  });
 });

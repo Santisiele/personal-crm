@@ -7,6 +7,7 @@ import { Contact, ContactId } from '@/contacts/domain/contact';
 export interface ContactRepository {
   save(contact: Contact): Promise<void>;
   findById(id: ContactId): Promise<Contact | null>;
+  findAll(): Promise<Contact[]>;
 }
 
 export const CONTACT_REPOSITORY = Symbol('ContactRepository');

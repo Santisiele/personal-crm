@@ -25,4 +25,8 @@ export class InMemoryContactRepository implements ContactRepository {
   findById(id: ContactId): Promise<Contact | null> {
     return Promise.resolve(this.contacts.get(id) ?? null);
   }
+
+  findAll(): Promise<Contact[]> {
+    return Promise.resolve([...this.contacts.values()]);
+  }
 }
