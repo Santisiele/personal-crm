@@ -22,8 +22,11 @@ describe('App (e2e)', () => {
   // Lookup rows we may have to seed, and tasks we create — all cleaned up.
   let seededTaskStatusId: bigint | null = null;
   let seededAssignmentStatusId: bigint | null = null;
+  let seededCompanyStatusId: bigint | null = null;
   const createdTaskIds: bigint[] = [];
   const createdUserIds: string[] = [];
+  const createdContactIds: bigint[] = [];
+  const createdCompanyIds: bigint[] = [];
 
   const actor = (id: string, role: string) => ({
     'x-user-id': id,
@@ -63,6 +66,12 @@ describe('App (e2e)', () => {
       });
       seededAssignmentStatusId = status.id;
     }
+    if (!(await prisma.company_status.findFirst())) {
+      const status = await prisma.company_status.create({
+        data: { description: 'E2E-ACTIVE' },
+      });
+      seededCompanyStatusId = status.id;
+    }
 
     ownerId = await createUser('E2E Owner', 'USER');
     otherId = await createUser('E2E Other', 'USER');
@@ -75,6 +84,19 @@ describe('App (e2e)', () => {
         where: { task_id: { in: createdTaskIds } },
       });
       await prisma.task.deleteMany({ where: { id: { in: createdTaskIds } } });
+    }
+    if (createdCompanyIds.length > 0) {
+      await prisma.contact_x_company.deleteMany({
+        where: { company_id: { in: createdCompanyIds } },
+      });
+      await prisma.company.deleteMany({
+        where: { id: { in: createdCompanyIds } },
+      });
+    }
+    if (createdContactIds.length > 0) {
+      await prisma.contact.deleteMany({
+        where: { id: { in: createdContactIds } },
+      });
     }
     if (createdUserIds.length > 0) {
       await prisma.app_user.deleteMany({
@@ -89,6 +111,11 @@ describe('App (e2e)', () => {
     if (seededAssignmentStatusId) {
       await prisma.assignment_status.deleteMany({
         where: { id: seededAssignmentStatusId },
+      });
+    }
+    if (seededCompanyStatusId) {
+      await prisma.company_status.deleteMany({
+        where: { id: seededCompanyStatusId },
       });
     }
     await app.close();
@@ -252,6 +279,74 @@ describe('App (e2e)', () => {
         include: { user_role: true },
       });
       expect(updated.user_role.description).toBe('ADMIN');
+    });
+  });
+
+  describe('contacts and companies', () => {
+    const createContact = async (): Promise<string> => {
+      const res = await request(app.getHttpServer())
+        .post('/contacts')
+        .send({ contactName: 'E2E Contact', email: 'e2e@example.com' })
+        .expect(201);
+      const id = (res.body as { id: string }).id;
+      createdContactIds.push(BigInt(id));
+      return id;
+    };
+
+    const createCompany = async (): Promise<string> => {
+      const res = await request(app.getHttpServer())
+        .post('/companies')
+        .set(actor(adminId, 'ADMIN'))
+        .send({ companyName: 'E2E Company', cuit: '30-12345678-9' })
+        .expect(201);
+      const body = res.body as { id: string; ownerId: string };
+      createdCompanyIds.push(BigInt(body.id));
+      return body.id;
+    };
+
+    it('creates a contact over HTTP', async () => {
+      const id = await createContact();
+      expect(id).toBeTruthy();
+    });
+
+    it('lets an admin create a company but forbids a normal user (403)', async () => {
+      const companyId = await createCompany();
+      expect(companyId).toBeTruthy();
+
+      await request(app.getHttpServer())
+        .post('/companies')
+        .set(actor(ownerId, 'USER'))
+        .send({ companyName: 'Denied Co' })
+        .expect(403);
+    });
+
+    it('links a contact to a company (admin) and forbids a user (403)', async () => {
+      const companyId = await createCompany();
+      const contactId = await createContact();
+
+      const res = await request(app.getHttpServer())
+        .post(`/companies/${companyId}/contacts`)
+        .set(actor(adminId, 'ADMIN'))
+        .send({ contactId, roleInCompany: 'CEO', phone: '555-0100' })
+        .expect(201);
+      const body = res.body as { companyId: string; contactId: string };
+      expect(body.companyId).toBe(companyId);
+      expect(body.contactId).toBe(contactId);
+
+      await request(app.getHttpServer())
+        .post(`/companies/${companyId}/contacts`)
+        .set(actor(ownerId, 'USER'))
+        .send({ contactId })
+        .expect(403);
+    });
+
+    it('returns 404 when linking to a company that does not exist', async () => {
+      const contactId = await createContact();
+      await request(app.getHttpServer())
+        .post('/companies/999999999999999/contacts')
+        .set(actor(adminId, 'ADMIN'))
+        .send({ contactId })
+        .expect(404);
     });
   });
 });
