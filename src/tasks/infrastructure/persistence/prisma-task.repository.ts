@@ -5,7 +5,7 @@ import {
   isTaskStatus,
   TaskStatus,
 } from '@/tasks/domain/task-status';
-import { TaskRepository } from '@/tasks/domain/task.repository';
+import { TaskListFilter, TaskRepository } from '@/tasks/domain/task.repository';
 
 /** Formats a stored timestamp as an ISO calendar date ('YYYY-MM-DD'). */
 function toIsoDate(date: Date): string {
@@ -58,9 +58,47 @@ export class PrismaTaskRepository implements TaskRepository {
     if (!row) {
       return null;
     }
+    return this.rehydrate(row);
+  }
+
+  async updateStatus(id: TaskId, status: TaskStatus): Promise<void> {
+    await this.prisma.task.update({
+      where: { id: BigInt(id) },
+      data: { status_id: await this.statusId(status) },
+    });
+  }
+
+  async findAll(filter?: TaskListFilter): Promise<Task[]> {
+    const rows = await this.prisma.task.findMany({
+      where: {
+        deleted_at: null,
+        ...(filter?.companyId ? { company_id: BigInt(filter.companyId) } : {}),
+      },
+      orderBy: { id: 'desc' },
+    });
+    const tasks = await Promise.all(rows.map((row) => this.rehydrate(row)));
+    // The assignee lives in task_assignment, resolved during rehydration, so we
+    // filter on the read model here rather than in the SQL query.
+    if (filter?.assigneeId) {
+      return tasks.filter((task) => task.assigneeId === filter.assigneeId);
+    }
+    return tasks;
+  }
+
+  /** Rebuilds a Task aggregate from a `task` row (resolving its assignee). */
+  private async rehydrate(row: {
+    id: bigint;
+    created_by: bigint;
+    title: string;
+    description: string;
+    due_date: Date | null;
+    company_id: bigint | null;
+    status_id: bigint;
+  }): Promise<Task> {
+    const id = row.id.toString();
     const current = await this.currentAssignment(id);
     return Task.rehydrate({
-      id: row.id.toString(),
+      id,
       ownerId: row.created_by.toString(),
       assigneeId: current
         ? current.user_id.toString()

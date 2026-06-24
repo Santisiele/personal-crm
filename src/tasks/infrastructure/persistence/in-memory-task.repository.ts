@@ -1,5 +1,6 @@
 import { Task, TaskId } from '@/tasks/domain/task';
-import { TaskRepository } from '@/tasks/domain/task.repository';
+import { TaskStatus } from '@/tasks/domain/task-status';
+import { TaskListFilter, TaskRepository } from '@/tasks/domain/task.repository';
 
 /**
  * In-memory driven adapter for tasks. Used in acceptance/unit tests and local
@@ -27,6 +28,30 @@ export class InMemoryTaskRepository implements TaskRepository {
       return Promise.resolve(null);
     }
     return Promise.resolve(this.tasks.get(id) ?? null);
+  }
+
+  updateStatus(id: TaskId, status: TaskStatus): Promise<void> {
+    const task = this.tasks.get(id);
+    if (task && !this.archived.has(id)) {
+      task.changeStatus(status);
+    }
+    return Promise.resolve();
+  }
+
+  findAll(filter?: TaskListFilter): Promise<Task[]> {
+    const matches = [...this.tasks.values()].filter((task) => {
+      if (this.archived.has(task.id as TaskId)) {
+        return false;
+      }
+      if (filter?.assigneeId && task.assigneeId !== filter.assigneeId) {
+        return false;
+      }
+      if (filter?.companyId && task.companyId !== filter.companyId) {
+        return false;
+      }
+      return true;
+    });
+    return Promise.resolve(matches);
   }
 
   // The reason and actor are persistence detail the in-memory double does not

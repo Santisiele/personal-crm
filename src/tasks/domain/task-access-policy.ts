@@ -17,6 +17,30 @@ export class TaskAccessPolicy {
     return this.owns(actor, task);
   }
 
+  /**
+   * Whether a task should appear in the actor's task list: the owner and the
+   * current assignee see it; privileged actors see every task.
+   */
+  isVisibleInList(actor: Actor, task: Task): boolean {
+    return (
+      this.isPrivileged(actor) ||
+      this.owns(actor, task) ||
+      this.isAssignee(actor, task)
+    );
+  }
+
+  /**
+   * The owner, the current assignee, or a privileged actor may move a task
+   * through its status flow.
+   */
+  canChangeStatus(actor: Actor, task: Task): boolean {
+    return (
+      this.isPrivileged(actor) ||
+      this.owns(actor, task) ||
+      this.isAssignee(actor, task)
+    );
+  }
+
   /** The owner or a privileged actor may archive (logically delete) a task. */
   canArchive(actor: Actor, task: Task): boolean {
     return this.isPrivileged(actor) || this.owns(actor, task);
@@ -36,5 +60,9 @@ export class TaskAccessPolicy {
 
   private owns(actor: Actor, task: Task): boolean {
     return task.ownerId === actor.id;
+  }
+
+  private isAssignee(actor: Actor, task: Task): boolean {
+    return task.assigneeId === actor.id;
   }
 }

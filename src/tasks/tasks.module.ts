@@ -10,6 +10,7 @@ import { CreateTask } from '@/tasks/application/create-task.use-case';
 import { ViewTask } from '@/tasks/application/view-task.use-case';
 import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
 import { ArchiveTask } from '@/tasks/application/archive-task.use-case';
+import { ChangeTaskStatus } from '@/tasks/application/change-task-status.use-case';
 
 /**
  * Composition root for the tasks context. Binds the TaskRepository port to its
@@ -43,8 +44,20 @@ import { ArchiveTask } from '@/tasks/application/archive-task.use-case';
       useFactory: (tasks: TaskRepository) => new ArchiveTask(tasks),
       inject: [TASK_REPOSITORY],
     },
+    {
+      provide: ChangeTaskStatus,
+      useFactory: (tasks: TaskRepository) => new ChangeTaskStatus(tasks),
+      inject: [TASK_REPOSITORY],
+    },
   ],
   controllers: [TasksController],
-  exports: [TASK_REPOSITORY, CreateTask, ViewTask, ReassignTask, ArchiveTask],
+  exports: [
+    TASK_REPOSITORY,
+    CreateTask,
+    ViewTask,
+    ReassignTask,
+    ArchiveTask,
+    ChangeTaskStatus,
+  ],
 })
 export class TasksModule {}
