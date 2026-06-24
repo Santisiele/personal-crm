@@ -9,6 +9,7 @@ import { PrismaContactRepository } from '@/contacts/infrastructure/persistence/p
 import { CreateContact } from '@/contacts/application/create-contact.use-case';
 import { ListContacts } from '@/contacts/application/list-contacts.use-case';
 import { ViewContact } from '@/contacts/application/view-contact.use-case';
+import { UpdateContact } from '@/contacts/application/update-contact.use-case';
 
 /**
  * Composition root for the contacts context. Binds the ContactRepository port to
@@ -36,6 +37,11 @@ import { ViewContact } from '@/contacts/application/view-contact.use-case';
     {
       provide: ViewContact,
       useFactory: (contacts: ContactRepository) => new ViewContact(contacts),
+      inject: [CONTACT_REPOSITORY],
+    },
+    {
+      provide: UpdateContact,
+      useFactory: (contacts: ContactRepository) => new UpdateContact(contacts),
       inject: [CONTACT_REPOSITORY],
     },
   ],

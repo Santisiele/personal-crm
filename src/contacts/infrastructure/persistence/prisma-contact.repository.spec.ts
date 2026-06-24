@@ -69,4 +69,23 @@ describeIfDb('PrismaContactRepository (integration)', () => {
     const all = await repository.findAll();
     expect(all.some((c) => c.id === contact.id)).toBe(true);
   });
+
+  it('edits an existing contact in place and reads the change back', async () => {
+    const contact = Contact.create({
+      contactName: 'Before Edit',
+      email: 'before@example.com',
+      birth: '1980-01-01',
+    });
+    await repository.save(contact);
+    createdIds.push(BigInt(contact.id!));
+
+    contact.update({ contactName: 'After Edit', email: 'after@example.com' });
+    await repository.save(contact);
+
+    const reloaded = await repository.findById(contact.id!);
+    expect(reloaded!.contactName).toBe('After Edit');
+    expect(reloaded!.email).toBe('after@example.com');
+    // Untouched field stays put.
+    expect(reloaded!.birth).toBe('1980-01-01');
+  });
 });

@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { CreateContact } from '@/contacts/application/create-contact.use-case';
 import { ListContacts } from '@/contacts/application/list-contacts.use-case';
 import { ViewContact } from '@/contacts/application/view-contact.use-case';
+import { UpdateContact } from '@/contacts/application/update-contact.use-case';
 import { CreateContactDto } from '@/contacts/dto/create-contact.dto';
+import { UpdateContactDto } from '@/contacts/dto/update-contact.dto';
 import { Contact } from '@/contacts/domain/contact';
 
 @Controller('contacts')
@@ -11,6 +13,7 @@ export class ContactsController {
     private readonly createContact: CreateContact,
     private readonly listContacts: ListContacts,
     private readonly viewContact: ViewContact,
+    private readonly updateContact: UpdateContact,
   ) {}
 
   @Post()
@@ -32,6 +35,17 @@ export class ContactsController {
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const contact = await this.viewContact.execute({ contactId: id });
+    return this.present(contact);
+  }
+
+  @Patch(':id')
+  async update(@Param('id') id: string, @Body() body: UpdateContactDto) {
+    const contact = await this.updateContact.execute({
+      contactId: id,
+      contactName: body.contactName,
+      email: body.email,
+      birth: body.birth,
+    });
     return this.present(contact);
   }
 
