@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { UserRole } from '@/users/domain/user-role';
 import { Actor } from '@/shared/domain/actor';
 
@@ -16,7 +17,7 @@ import { Actor } from '@/shared/domain/actor';
  */
 export const CurrentActor = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): Actor => {
-    const request = ctx.switchToHttp().getRequest();
+    const request = ctx.switchToHttp().getRequest<Request>();
     const id = request.headers['x-user-id'];
     const role = request.headers['x-user-role'];
     if (typeof id !== 'string' || !isUserRole(role)) {

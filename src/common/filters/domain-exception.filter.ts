@@ -4,6 +4,7 @@ import {
   ExceptionFilter,
   HttpStatus,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   AuthorizationError,
   DomainError,
@@ -20,7 +21,7 @@ import {
 @Catch(DomainError)
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(error: DomainError, host: ArgumentsHost): void {
-    const response = host.switchToHttp().getResponse();
+    const response = host.switchToHttp().getResponse<Response>();
     const status = this.statusFor(error);
     response.status(status).json({
       statusCode: status,
