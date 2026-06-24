@@ -23,6 +23,7 @@ describe('App (e2e)', () => {
   let seededTaskStatusId: bigint | null = null;
   let seededAssignmentStatusId: bigint | null = null;
   const createdTaskIds: bigint[] = [];
+  const createdUserIds: string[] = [];
 
   const actor = (id: string, role: string) => ({
     'x-user-id': id,
@@ -34,7 +35,9 @@ describe('App (e2e)', () => {
       .post('/users')
       .send({ name, role, password: 'secret-password' })
       .expect(201);
-    return (res.body as { id: string }).id;
+    const id = (res.body as { id: string }).id;
+    createdUserIds.push(id);
+    return id;
   };
 
   beforeAll(async () => {
@@ -73,11 +76,10 @@ describe('App (e2e)', () => {
       });
       await prisma.task.deleteMany({ where: { id: { in: createdTaskIds } } });
     }
-    const userIds = [ownerId, otherId, adminId]
-      .filter(Boolean)
-      .map((id) => BigInt(id));
-    if (userIds.length > 0) {
-      await prisma.app_user.deleteMany({ where: { id: { in: userIds } } });
+    if (createdUserIds.length > 0) {
+      await prisma.app_user.deleteMany({
+        where: { id: { in: createdUserIds.map((id) => BigInt(id)) } },
+      });
     }
     if (seededTaskStatusId) {
       await prisma.task_status.deleteMany({
@@ -215,6 +217,41 @@ describe('App (e2e)', () => {
         .set(actor(otherId, 'USER'))
         .send({ newAssigneeId: adminId })
         .expect(403);
+    });
+  });
+
+  describe('user management', () => {
+    it('lets a user change their own password (204)', async () => {
+      const userId = await createUser('E2E Pwd', 'USER');
+      const before = await prisma.app_user.findUniqueOrThrow({
+        where: { id: BigInt(userId) },
+      });
+
+      await request(app.getHttpServer())
+        .patch('/users/me/password')
+        .set(actor(userId, 'USER'))
+        .send({ newPassword: 'a-brand-new-password' })
+        .expect(204);
+
+      const after = await prisma.app_user.findUniqueOrThrow({
+        where: { id: BigInt(userId) },
+      });
+      expect(after.user_password_hash).not.toBe(before.user_password_hash);
+    });
+
+    it("changes a user's role (204)", async () => {
+      const userId = await createUser('E2E Promote', 'USER');
+
+      await request(app.getHttpServer())
+        .patch(`/users/${userId}/role`)
+        .send({ role: 'ADMIN' })
+        .expect(204);
+
+      const updated = await prisma.app_user.findUniqueOrThrow({
+        where: { id: BigInt(userId) },
+        include: { user_role: true },
+      });
+      expect(updated.user_role.description).toBe('ADMIN');
     });
   });
 });
