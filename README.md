@@ -58,21 +58,36 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
   - `PATCH /users/:id/role` — cambiar el rol.
 
 ### Contexto `tasks` (`src/tasks`)
-- **Dominio**: `Task` lleva `id` (lo asigna el repositorio en el primer `save`; antes es `null`), `ownerId`, `assigneeId` (puede ser `null` = sin asignar), `title` y `description`. **No modela** historial de asignaciones ni estados. `TaskAccessPolicy` (domain service) con `canView` (privilegiado o dueño), `canReassign` (solo dueño) y `canAssignTo` (uno mismo, o privilegiado para asignar a otro / dejar sin asignar).
-- **Puertos**: `TaskRepository`.
-- **Casos de uso**: `CreateTask`, `ViewTask`, `ReassignTask`.
+- **Dominio**: `Task` lleva `id` (lo asigna el repositorio en el primer `save`; antes es `null`), `ownerId`, `assigneeId` (puede ser `null` = sin asignar), `title` y `description`. **No modela** historial de asignaciones ni estados. `TaskAccessPolicy` (domain service) con `canView` (privilegiado o dueño), `canReassign` (solo dueño), `canAssignTo` (uno mismo, o privilegiado para asignar a otro / dejar sin asignar) y `canArchive` (dueño o privilegiado).
+- **Puertos**: `TaskRepository` (incluye `archive`).
+- **Casos de uso**: `CreateTask`, `ViewTask`, `ReassignTask`, `ArchiveTask`.
 - **Adaptadores**: `InMemoryTaskRepository` (asigna identidad con un contador), `PrismaTaskRepository`.
 - **Endpoints** (`TasksController`):
   - `POST /tasks` — crear tarea (`CreateTaskDto`: `title`, `description`, `assigneeId?`). Omitir `assigneeId` → para uno mismo; `null` → sin asignar (solo privilegiados); un id → a ese usuario (solo privilegiados, salvo que sea uno mismo).
   - `GET /tasks/:id` — ver tarea (autorizado por rol/ownership).
   - `PATCH /tasks/:id/assignee` — reasignar (`ReassignTaskDto`, solo el dueño).
+  - `POST /tasks/:id/archive` — archivar (borrado lógico, `ArchiveTaskDto`: `reason`). Setea `deleted_at`/`deleted_by` y registra la razón como un `task_activity` cuyo `activity_status` ('DELETED') la marca como borrado. La tarea archivada **deja de aparecer** en `findById` (ver/reasignar dan 404). Dueño o privilegiado.
+
+### Contexto `contacts` (`src/contacts`)
+- **Dominio**: `Contact` (id repo-asignado; `contactName`, `email?`, `birth?` como fecha ISO `YYYY-MM-DD`). `ContactNotFoundError`.
+- **Casos de uso**: `CreateContact` (sin autorización — cualquiera crea un contacto, como `POST /users`).
+- **Adaptadores**: `InMemoryContactRepository`, `PrismaContactRepository`.
+- **Endpoint**: `POST /contacts` (`CreateContactDto`). El módulo exporta `CONTACT_REPOSITORY` para que `companies` lo reuse.
+
+### Contexto `companies` (`src/companies`)
+- **Dominio**: `Company` (id repo-asignado; `companyName`, `ownerId` = `created_by`, `cuit?`/`brand?`/`product?`/`origin?`). `CompanyAccessPolicy` (`canCreate`, `canLinkContacts` = solo ADMIN/CREATOR) + `CompanyAccessDeniedError`. `CompanyNotFoundError`. `CompanyContactLink` (vínculo `contact_x_company` con `roleInCompany?`/`phone?`).
+- **Casos de uso**: `CreateCompany`, `LinkContactToCompany` (verifica que empresa y contacto existan).
+- **Adaptadores**: in-memory + Prisma para `Company` y para el vínculo. Al crear, `status_id` = el `company_status` de menor id (default).
+- **Endpoints** (`CompaniesController`):
+  - `POST /companies` — crear empresa (**solo ADMIN/CREATOR**; el creador es el dueño).
+  - `POST /companies/:id/contacts` — vincular un contacto existente (`LinkContactDto`: `contactId`, `roleInCompany?`, `phone?`). Solo privilegiados; 404 si la empresa o el contacto no existen. `CompaniesModule` importa `ContactsModule` para reusar el `ContactRepository`.
 
 ### Shared / common / auth
 - `src/shared/domain/actor.ts` — **`Actor`** (`{ id, role }`), kernel compartido entre contextos.
 - `src/shared/domain/domain-error.ts` — jerarquía `DomainError` → `NotFoundError` / `AuthorizationError` (usa `new.target.name`).
 - `src/common/filters/domain-exception.filter.ts` — `DomainExceptionFilter` global: mapea **por categoría** (`NotFoundError`→404, `AuthorizationError`→403). Los controllers **no hacen try/catch**.
 - `src/auth/` — **vacío (placeholder)**. El `Actor` se obtiene con el decorator `@CurrentActor()` que hoy lee los headers `x-user-id` / `x-user-role`. **La autenticación NO está implementada ni hay enforcement.**
-- Scaffolding aún vacío: `companies`, `contacts`, `task-activities`, `task-assignments`.
+- Scaffolding aún vacío: `task-activities`, `task-assignments` (el resto de `task_activity` más allá del archivado; el historial de asignaciones).
 
 ### Configuración transversal (`AppModule`)
 - `APP_FILTER` → `DomainExceptionFilter`.
@@ -135,8 +150,9 @@ pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 
 - **Autenticación real** (login/JWT) reemplazando el `@CurrentActor()` de headers, y enforcement donde haga falta.
 - **`Task.status` en el dominio**: hoy la creación usa el `task_status` de menor id como default; cuando el flujo de estados importe, modelarlo en el agregado en vez de inferirlo en el adaptador.
-- **e2e**: cubre `GET /`, creación de tareas (USER para sí, ADMIN a otro), los caminos de error (403, 400, 404) y la reasignación (owner ok / no-owner 403). Próximo: validaciones más finas y cobertura de `users`.
-- Contextos scaffolding vacíos: `companies`, `contacts`, `task-activities`, `task-assignments`.
+- **e2e**: cubre `GET /`, tareas (crear/ver/reasignar/archivar con sus 200/201/204/400/403/404), `users` (password/rol), `contacts`, `companies` y el vínculo contacto↔empresa. Todo contra la DB real y self-cleaning.
+- **Lookups del archivado**: el adaptador resuelve `activity_status='DELETED'` y `action_type='ARCHIVE'` por descripción y falla si faltan (hay que seedearlos). Cuando se modele `task_activity` en serio, formalizar estos lookups.
+- Contextos scaffolding vacíos: `task-activities` (seguimiento general más allá del archivado), `task-assignments` (historial de asignaciones).
 
 ### Autorización por rol en creación (implementado)
 Regla: *cualquiera crea una task asignada a sí mismo; solo privilegiados (ADMIN/CREATOR) la asignan a otro o la dejan sin asignar.*
@@ -165,11 +181,20 @@ src/
     users.controller.ts | users.module.ts
   tasks/
     domain/                # Task, TaskAccessPolicy, errores
-    application/           # CreateTask, ViewTask, ReassignTask
+    application/           # CreateTask, ViewTask, ReassignTask, ArchiveTask
     infrastructure/        # persistence (in-memory, prisma)
-    dto/                   # CreateTaskDto, ReassignTaskDto
-    tests/                 # task-creation.steps.ts, user-permissions.steps.ts
+    dto/                   # CreateTaskDto, ReassignTaskDto, ArchiveTaskDto
+    tests/                 # task-creation.steps.ts, task-archiving.steps.ts, user-permissions.steps.ts
     tasks.controller.ts | tasks.module.ts
+  contacts/
+    domain/ application/ infrastructure/ dto/ tests/   # Contact, CreateContact
+    contacts.controller.ts | contacts.module.ts
+  companies/
+    domain/                # Company, CompanyAccessPolicy, CompanyContactLink, errores
+    application/           # CreateCompany, LinkContactToCompany
+    infrastructure/ dto/ tests/
+    companies.controller.ts | companies.module.ts
+test/                      # app.e2e-spec.ts (e2e real-DB), setup-e2e.ts, jest-e2e.json
 specs/                     # *.feature (Gherkin)
 prisma/schema.prisma
 ```
