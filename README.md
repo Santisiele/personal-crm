@@ -112,7 +112,7 @@ export TEST_DATABASE_URL="$(node -e 'require("dotenv").config({quiet:true}); pro
 ```
 > `config({quiet:true})` es obligatorio o dotenv contamina la URL con su banner.
 
-- **e2e** (`test/app.e2e-spec.ts`): corre con **`pnpm test:e2e`** (config propia `test/jest-e2e.json`, fuera de `pnpm test`). Levanta el `AppModule` real y ejercita `GET /` (200 + `Hello World!`). `PrismaService` va **stubeado** (`overrideProvider`) porque el endpoint raíz no toca persistencia: así el e2e es rápido y no abre conexión a la DB.
+- **e2e** (`test/app.e2e-spec.ts`): corre con **`pnpm test:e2e`** (config propia `test/jest-e2e.json`, fuera de `pnpm test`). Levanta el `AppModule` real **contra la DB** (carga `.env` vía `test/setup-e2e.ts`) y ejercita el stack completo: `GET /` (smoke) y un flujo real de tareas (`POST /users` → `POST /tasks` → `GET /tasks/:id`) pasando por el pipe, el `@CurrentActor` (headers), el use case y Prisma. **Crea y borra sus propias filas** (la dev DB es descartable).
 
 ---
 
@@ -124,7 +124,7 @@ pnpm build          # nest build && tsc-alias  (output a dist/)
 pnpm start:dev      # watch mode
 pnpm start:prod     # node dist/main
 pnpm test           # jest (integración skippeada salvo TEST_DATABASE_URL)
-pnpm test:e2e       # jest e2e (test/jest-e2e.json) — AppModule real, Prisma stubeado
+pnpm test:e2e       # jest e2e (test/jest-e2e.json) — AppModule real contra la DB, self-cleaning
 pnpm run format     # prettier --write
 pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 ```
@@ -135,7 +135,7 @@ pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 
 - **Autenticación real** (login/JWT) reemplazando el `@CurrentActor()` de headers, y enforcement donde haga falta.
 - **`Task.status` en el dominio**: hoy la creación usa el `task_status` de menor id como default; cuando el flujo de estados importe, modelarlo en el agregado en vez de inferirlo en el adaptador.
-- **e2e**: hoy solo cubre `GET /` (smoke). Falta cobertura e2e de los endpoints reales (`tasks`/`users`), que necesitarían una DB de test o stubs de repositorios.
+- **e2e**: cubre `GET /` y el camino feliz de creación de tareas. Faltan los caminos de error (403 al asignar a otro siendo USER, 404, validación) y flujos de reasignación.
 - Contextos scaffolding vacíos: `companies`, `contacts`, `task-activities`, `task-assignments`.
 
 ### Autorización por rol en creación (implementado)
