@@ -238,7 +238,14 @@ describe('App (e2e)', () => {
         .get(`/tasks/${body.id}`)
         .set(bearer(ownerToken))
         .expect(200)
-        .expect({ id: body.id, ownerId, assigneeId: ownerId });
+        .expect({
+          id: body.id,
+          ownerId,
+          assigneeId: ownerId,
+          dueDate: null,
+          companyId: null,
+          status: 'PENDING',
+        });
     });
 
     it('lets an admin create a task assigned to another user', async () => {
@@ -315,7 +322,14 @@ describe('App (e2e)', () => {
         .get(`/tasks/${taskId}`)
         .set(bearer(ownerToken))
         .expect(200)
-        .expect({ id: taskId, ownerId, assigneeId: otherId });
+        .expect({
+          id: taskId,
+          ownerId,
+          assigneeId: otherId,
+          dueDate: null,
+          companyId: null,
+          status: 'PENDING',
+        });
     });
 
     it('forbids a non-owner from reassigning a task (403)', async () => {
