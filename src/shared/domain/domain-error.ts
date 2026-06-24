@@ -20,3 +20,6 @@ export abstract class AuthorizationError extends DomainError {}
 
 /** The actor could not be authenticated (e.g. bad credentials). */
 export abstract class AuthenticationError extends DomainError {}
+
+/** The attempted action conflicts with the current state (e.g. a duplicate). */
+export abstract class ConflictError extends DomainError {}

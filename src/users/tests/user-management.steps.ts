@@ -6,6 +6,7 @@ import { ChangePassword } from '@/users/application/change-password.use-case';
 import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
 import { InMemoryUserRepository } from '@/users/infrastructure/persistence/in-memory-user.repository';
 import { FakePasswordHasher } from '@/users/tests/doubles/fake-password-hasher';
+import { UserNameTakenError } from '@/users/domain/user-name-taken.error';
 
 const feature = loadFeature('specs/user_managment.feature', { errors: false });
 
@@ -17,6 +18,7 @@ defineFeature(feature, (test) => {
   let changeUserRole: ChangeUserRole;
   let createdUser: User;
   let oldPassword: string;
+  let conflictRejected: boolean;
 
   beforeEach(() => {
     users = new InMemoryUserRepository();
@@ -24,6 +26,7 @@ defineFeature(feature, (test) => {
     createUser = new CreateUser(users, hasher);
     changePassword = new ChangePassword(users, hasher);
     changeUserRole = new ChangeUserRole(users);
+    conflictRejected = false;
   });
 
   const anAdministratorIsAuthenticated = (given: DefineStepFunction) => {
@@ -131,6 +134,43 @@ defineFeature(feature, (test) => {
     then('the user role should be ADMIN', async () => {
       const stored = await users.findById(createdUser.id!);
       expect(stored!.role).toBe(UserRole.ADMIN);
+    });
+  });
+
+  test('Creating a user with a taken name is rejected', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    anAdministratorIsAuthenticated(given);
+
+    and('a user named "Jane Doe" already exists', async () => {
+      createdUser = await createUser.execute({
+        name: 'Jane Doe',
+        role: UserRole.USER,
+        password: 'initial-password',
+      });
+    });
+
+    when('creating another user named "Jane Doe"', async () => {
+      try {
+        await createUser.execute({
+          name: 'Jane Doe',
+          role: UserRole.USER,
+          password: 'another-password',
+        });
+      } catch (error) {
+        if (error instanceof UserNameTakenError) {
+          conflictRejected = true;
+        } else {
+          throw error;
+        }
+      }
+    });
+
+    then('the creation is rejected as a conflict', () => {
+      expect(conflictRejected).toBe(true);
     });
   });
 });

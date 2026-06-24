@@ -29,3 +29,9 @@ Given an administrator is authenticated
 And a user exists with role USER
 When changes the user's role to ADMIN
 Then the user role should be ADMIN
+
+Scenario: Creating a user with a taken name is rejected
+Given an administrator is authenticated
+And a user named "Jane Doe" already exists
+When creating another user named "Jane Doe"
+Then the creation is rejected as a conflict

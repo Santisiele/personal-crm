@@ -1,5 +1,6 @@
 import { PasswordHasher } from '@/users/domain/password-hasher';
 import { User } from '@/users/domain/user';
+import { UserNameTakenError } from '@/users/domain/user-name-taken.error';
 import { UserRole } from '@/users/domain/user-role';
 import { UserRepository } from '@/users/domain/user.repository';
 
@@ -21,6 +22,9 @@ export class CreateUser {
   ) {}
 
   async execute(command: CreateUserCommand): Promise<User> {
+    if (await this.users.findByName(command.name)) {
+      throw new UserNameTakenError(command.name);
+    }
     const user = User.create({
       name: command.name,
       role: command.role,

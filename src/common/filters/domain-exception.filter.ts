@@ -8,6 +8,7 @@ import type { Response } from 'express';
 import {
   AuthenticationError,
   AuthorizationError,
+  ConflictError,
   DomainError,
   NotFoundError,
 } from '@/shared/domain/domain-error';
@@ -40,6 +41,9 @@ export class DomainExceptionFilter implements ExceptionFilter {
     }
     if (error instanceof AuthorizationError) {
       return HttpStatus.FORBIDDEN;
+    }
+    if (error instanceof ConflictError) {
+      return HttpStatus.CONFLICT;
     }
     return HttpStatus.INTERNAL_SERVER_ERROR;
   }
