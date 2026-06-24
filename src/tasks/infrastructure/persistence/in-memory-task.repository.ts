@@ -56,7 +56,8 @@ export class InMemoryTaskRepository implements TaskRepository {
 
   // The reason and actor are persistence detail the in-memory double does not
   // model; archiving just makes the task disappear from reads (logical delete).
-  archive(id: TaskId): Promise<void> {
+  // The full signature honors the TaskRepository port contract.
+  archive(id: TaskId, _reason: string, _archivedBy: string): Promise<void> {
     this.archived.add(id);
     return Promise.resolve();
   }
