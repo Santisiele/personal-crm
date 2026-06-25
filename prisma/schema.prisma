@@ -24,6 +24,8 @@ model app_user {
   created_at                                            DateTime          @default(now()) @db.Timestamptz(6)
   user_role_id                                          BigInt
   user_password_hash                                    String
+  deleted_at                                            DateTime?         @db.Timestamptz(6)
+  deleted_by                                            BigInt?
   user_role                                             user_role         @relation(fields: [user_role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_app_user_user_role")
   company                                               company[]
   task_task_created_byToapp_user                        task[]            @relation("task_created_byToapp_user")
@@ -50,6 +52,8 @@ model company {
   created_at        DateTime            @default(now()) @db.Timestamptz(6)
   created_by        BigInt
   status_id         BigInt
+  deleted_at        DateTime?           @db.Timestamptz(6)
+  deleted_by        BigInt?
   app_user          app_user            @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_company_created_by")
   company_status    company_status      @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_company_status")
   contact_x_company contact_x_company[]
@@ -67,6 +71,8 @@ model contact {
   contact_name      String
   email             String?
   birth             DateTime?           @db.Date
+  deleted_at        DateTime?           @db.Timestamptz(6)
+  deleted_by        BigInt?
   contact_x_company contact_x_company[]
 }
 
