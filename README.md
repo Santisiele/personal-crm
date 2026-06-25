@@ -100,8 +100,15 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 
 ### Contexto `task-activities` (`src/task-activities`)
 - **Dominio**: `TaskActivity` (id repo-asignado; `taskId`, `authorId` = actor, `activityDate` ISO, `actionType`/`status` por descripción, `description?`, `nextAction?`, `nextActionDate?`).
-- **Casos de uso**: `LogTaskActivity` — carga la tarea (`TaskRepository` del contexto `tasks`), exige `TaskAccessPolicy.canView` (dueño o privilegiado), y guarda. `actionType`/`status` se resuelven contra `action_type`/`activity_status` por descripción.
-- **Endpoint**: `POST /tasks/:taskId/activities` (`LogTaskActivityDto`). `TaskActivitiesModule` importa `TasksModule` (que ahora exporta `TASK_REPOSITORY`).
+- **Puertos**: `TaskActivityRepository` (`save`, `findByTaskId` ordenado most-recent first).
+- **Casos de uso**:
+  - `LogTaskActivity` — carga la tarea (`TaskRepository` del contexto `tasks`), exige `TaskAccessPolicy.canView` (dueño o privilegiado), y guarda. `actionType`/`status` se resuelven contra `action_type`/`activity_status` por descripción.
+  - `ViewActivityLog` — carga la tarea, exige `TaskAccessPolicy.canView` (mismo gate que loguear) y devuelve el log completo, most-recent first (por `activityDate` y luego `id`, desc). 404 si la tarea no existe. Espeja a `ViewAssignmentHistory` del contexto `task-assignments`.
+- **Adaptadores**: `InMemoryTaskActivityRepository` y `PrismaTaskActivityRepository`. Este último, al leer, resuelve `actionType`/`status` contra los lookups `action_type`/`activity_status` por id (incluidos en la query) y formatea `activity_date`/`next_action_date` a fecha ISO `YYYY-MM-DD`.
+- **Endpoints** (`TaskActivitiesController`):
+  - `POST /tasks/:taskId/activities` — loguear una actividad (`LogTaskActivityDto`).
+  - `GET /tasks/:taskId/activities` — leer el log de la tarea, most-recent first (autorizado por la política de la tarea: dueño o privilegiado; 403 si no, 404 si la tarea no existe).
+- `TaskActivitiesModule` importa `TasksModule` (que ahora exporta `TASK_REPOSITORY`).
 
 ### Contexto `task-assignments` (`src/task-assignments`)
 - **Dominio**: `TaskAssignment` (id repo-asignado; `taskId`, `assigneeId`, `assignedById`, `status`, `assignedAt`). Es **una entrada del historial** de asignaciones de una tarea. `AssignmentStatus` (enum `PENDING | ACCEPTED | REJECTED`; sus descripciones son los valores del lookup `assignment_status`). El agregado expone `accept()` / `reject()` (transiciones del ciclo de vida) e `isAssignedTo(userId)`. `TaskAssignmentNotFoundError` (→404).
@@ -185,7 +192,7 @@ pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 - **DB sin migraciones versionadas**: el índice único `app_user_name_key` se aplicó a mano sobre la dev DB para matchear el `@unique` del schema. Si en algún momento se adopta `prisma migrate`, formalizarlo.
 - **`Task.status` en el dominio** (implementado): el agregado modela `status` (`TaskStatus`: `PENDING` | `IN_PROGRESS` | `DONE`), default `PENDING` al crear, y se transiciona vía `PATCH /tasks/:id/status`. El adaptador Prisma resuelve `task_status` por descripción (fallback al de menor id si la descripción no está seedeada), así que conviene seedear las descripciones `PENDING`/`IN_PROGRESS`/`DONE` para que el flujo persista el estado correcto.
 - **Refresh stateless (sin revocación)**: el refresh token es un JWT firmado sin store en servidor, así que **no se puede revocar** antes de su `exp` (logout solo descarta el token en el cliente). Si hace falta revocación/rotación (logout server-side, detección de reuso), recién ahí agregar un store de refresh tokens detrás del puerto `TokenIssuer` (el escenario lo pediría primero).
-- **e2e**: cubre `GET /`, tareas (crear/ver/reasignar/archivar/estado/listar), `users` (password/rol + directorio), `contacts` (alta/lista/detalle/edición), `companies` (alta/lista/detalle/edición/estado) y el vínculo contacto↔empresa, el **historial de asignaciones** (`test/task-assignments.e2e-spec.ts`: GET historial 200/403/404, accept/reject 200/403/404) y el **ciclo de tokens de auth** (`test/auth.e2e-spec.ts`: login con par access/refresh, `POST /auth/refresh`, 401 de tokens expirados/manipulados/inválidos). Todo contra la DB real y self-cleaning con sufijo único por corrida.
+- **e2e**: cubre `GET /`, tareas (crear/ver/reasignar/archivar/estado/listar), `users` (password/rol + directorio), `contacts` (alta/lista/detalle/edición), `companies` (alta/lista/detalle/edición/estado) y el vínculo contacto↔empresa, las **actividades de tarea** (loguear 201/403 y leer el log 200 most-recent first / 403), el **historial de asignaciones** (`test/task-assignments.e2e-spec.ts`: GET historial 200/403/404, accept/reject 200/403/404) y el **ciclo de tokens de auth** (`test/auth.e2e-spec.ts`: login con par access/refresh, `POST /auth/refresh`, 401 de tokens expirados/manipulados/inválidos). Todo contra la DB real y self-cleaning con sufijo único por corrida.
 - **Lookups del archivado**: el adaptador resuelve `activity_status='DELETED'` y `action_type='ARCHIVE'` por descripción y falla si faltan (hay que seedearlos). Cuando se modele `task_activity` en serio, formalizar estos lookups.
 - **Lookups de `assignment_status`**: el contexto `task-assignments` resuelve `assignment_status` por descripción (`PENDING`/`ACCEPTED`/`REJECTED`). Conviene **seedear** esas tres filas. Al crear una asignación, si la descripción falta cae al `assignment_status` de menor id (mismo default que el adaptador de `tasks`), pero **accept/reject necesitan que `ACCEPTED`/`REJECTED` existan** para reflejar el estado correcto.
 
@@ -229,7 +236,8 @@ src/
     application/           # CreateCompany, LinkContactToCompany
     infrastructure/ dto/ tests/
     companies.controller.ts | companies.module.ts
-  task-activities/         # TaskActivity, LogTaskActivity (POST /tasks/:id/activities)
+  task-activities/         # TaskActivity, LogTaskActivity + ViewActivityLog
+                           #   (POST/GET /tasks/:id/activities)
   task-assignments/        # TaskAssignment (historial), ViewAssignmentHistory + RespondToAssignment
                            #   (GET /tasks/:taskId/assignments, POST .../:id/accept|reject)
 test/                      # app.e2e-spec.ts (e2e real-DB, JWT), setup-e2e.ts, jest-e2e.json
