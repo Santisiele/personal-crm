@@ -12,6 +12,7 @@ import {
 } from '@/task-activities/domain/task-activity.repository';
 import { PrismaTaskActivityRepository } from '@/task-activities/infrastructure/persistence/prisma-task-activity.repository';
 import { LogTaskActivity } from '@/task-activities/application/log-task-activity.use-case';
+import { ViewActivityLog } from '@/task-activities/application/view-activity-log.use-case';
 
 /**
  * Composition root for the task-activities context. Binds the
@@ -35,8 +36,14 @@ import { LogTaskActivity } from '@/task-activities/application/log-task-activity
         new LogTaskActivity(tasks, activities),
       inject: [TASK_REPOSITORY, TASK_ACTIVITY_REPOSITORY],
     },
+    {
+      provide: ViewActivityLog,
+      useFactory: (tasks: TaskRepository, activities: TaskActivityRepository) =>
+        new ViewActivityLog(tasks, activities),
+      inject: [TASK_REPOSITORY, TASK_ACTIVITY_REPOSITORY],
+    },
   ],
   controllers: [TaskActivitiesController],
-  exports: [LogTaskActivity],
+  exports: [LogTaskActivity, ViewActivityLog],
 })
 export class TaskActivitiesModule {}
