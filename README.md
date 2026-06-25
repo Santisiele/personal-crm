@@ -10,6 +10,7 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 - **Prisma 7** con `@prisma/adapter-pg` (driver adapter sobre `pg`).
 - **PostgreSQL** en Supabase (free plan) — ver [Base de datos](#base-de-datos).
 - **Jest 30** + **jest-cucumber** para specs BDD. **class-validator/class-transformer** para DTOs.
+- **@nestjs/swagger** (OpenAPI) con su CLI plugin: documentación interactiva en **`/docs`**.
 - Gestor de paquetes: **pnpm**.
 
 ---
@@ -62,6 +63,11 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
   - `GET /users/:id` — ver un usuario; **privilegiado o el propio usuario**, si no `403`; `404` si no existe. Devuelve `UserView`.
   - `DELETE /users/:id` — **baja lógica** (deactivate); **solo privilegiado** (ADMIN/CREATOR), si no `403`; `404` si no existe; `204` si ok. Setea `deleted_at`/`deleted_by`: el usuario **deja de aparecer** en `GET /users` y no puede loguear (`findByName` lo omite), pero **sigue siendo visible por id** (`findById` lo resuelve) para que las referencias históricas (p. ej. tareas que creó) sigan viéndose. Nunca borra la fila.
 
+#### Gestión de roles (`RolesController`, **solo CREATOR**)
+- **Dominio**: `Role` (id repo-asignado; `description`, la clave técnica del `user_role`). Puerto `RoleRepository` (`save`, `findAll`, `findByDescription`). `RoleAlreadyExistsError` (→409). `UserAccessPolicy.canManageRoles` = solo CREATOR.
+- **Casos de uso**: `CreateRole` (rechaza descripción duplicada → 409), `ListRoles`. Adaptadores in-memory + Prisma (escriben/leen la tabla `user_role`).
+- **Endpoints**: `POST /roles` (crear; 409 si duplicado, 403 si no CREATOR), `GET /roles` (listar; 403 si no CREATOR). Las descripciones son **claves técnicas en inglés** (la API es en inglés; la traducción es del front).
+
 ### Contexto `tasks` (`src/tasks`)
 - **Dominio**: `Task` lleva `id` (lo asigna el repositorio en el primer `save`; antes es `null`), `ownerId`, `assigneeId` (puede ser `null` = sin asignar), `title`, `description`, `dueDate` (fecha ISO `YYYY-MM-DD` o `null`), `companyId` (id de empresa o `null`) y `status` (enum `TaskStatus`: `PENDING` | `IN_PROGRESS` | `DONE`; default `PENDING` al crear). `changeStatus` transiciona el estado. **No modela** historial de asignaciones. `TaskStatus` vive en `domain/task-status.ts` (sus valores matchean las descripciones de `task_status`). `TaskAccessPolicy` (domain service) con `canView` (privilegiado o dueño), `canReassign` (solo dueño), `canChangeStatus` (dueño, asignado o privilegiado), `isVisibleInList` (dueño, asignado o privilegiado — para el listado), `canAssignTo` (uno mismo, o privilegiado para asignar a otro / dejar sin asignar) y `canArchive` (dueño o privilegiado).
 - **Puertos**: `TaskRepository` (incluye `findById`, `updateStatus`, `findAll(filter?)` y `archive`). `TaskListFilter` = `{ assigneeId?, companyId? }`.
@@ -101,6 +107,11 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
   - `PATCH /companies/:id/status` — transicionar el estado (`ChangeCompanyStatusDto`: `status` = descripción). Solo privilegiados; 404 si no existe.
   - `DELETE /companies/:id` — **baja lógica** (solo privilegiados); `404` si no existe; `204` si ok. La empresa sale del listado pero sigue siendo visible por id.
 
+#### Gestión de estados de empresa (`CompanyStatusesController`, **solo CREATOR**)
+- **Dominio**: `CompanyStatus` (id repo-asignado; `description` = valor de negocio **libre**, puede ser español). Puerto `CompanyStatusRepository` (`save`, `findAll`, `findByDescription`). `CompanyStatusAlreadyExistsError` (→409). `CompanyAccessPolicy.canManageStatuses` = solo CREATOR.
+- **Casos de uso**: `CreateCompanyStatus` (rechaza duplicado → 409), `ListCompanyStatuses`. Adaptadores in-memory + Prisma (tabla `company_status`).
+- **Endpoints**: `POST /company-statuses` (crear; 409 si duplicado, 403 si no CREATOR), `GET /company-statuses` (listar; 403 si no CREATOR).
+
 ### Contexto `task-activities` (`src/task-activities`)
 - **Dominio**: `TaskActivity` (id repo-asignado; `taskId`, `authorId` = actor, `activityDate` ISO, `actionType`/`status` por descripción, `description?`, `nextAction?`, `nextActionDate?`).
 - **Puertos**: `TaskActivityRepository` (`save`, `findByTaskId` ordenado most-recent first).
@@ -136,6 +147,7 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 - `APP_FILTER` → `DomainExceptionFilter`.
 - `APP_PIPE` → `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })`.
 - `PrismaModule` es `@Global` y exporta `PrismaService` (extiende `PrismaClient`).
+- **Swagger/OpenAPI**: en `main.ts` se monta `SwaggerModule` en **`/docs`** con un esquema Bearer JWT global (`access-token`) y `persistAuthorization`. El **CLI plugin** de `@nestjs/swagger` (`nest-cli.json`, `introspectComments: true`) infiere los schemas de los DTOs desde class-validator + JSDoc, así los DTOs quedan documentados sin decorar a mano; los controllers llevan `@ApiTags`/`@ApiOperation`/`@ApiResponse`/`@ApiBearerAuth`. Las 4 rutas `@Public()` (`GET /`, login, refresh, `POST /users`) quedan sin auth.
 
 ---
 
@@ -157,6 +169,7 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 - `DATABASE_URL` (en `.env`) apunta a una **Postgres de Supabase (free)** vía session pooler. Es técnicamente "producción" pero se trata como **DB de dev descartable** (vacía; se llena y se limpia después).
 - La tabla `user_role` está seedeada: `1:USER, 2:ADMIN, 3:CREATOR`. El `PrismaUserRepository` resuelve roles por `user_role.description`.
 - Esquema en `prisma/schema.prisma`. Tablas relevantes: `app_user`, `user_role`, `task`, `task_assignment`, `task_status`, `assignment_status`, `task_activity`, `company`, `contact`, etc.
+- **Seed** (`prisma/seed.ts`, idempotente, `pnpm db:seed`): llena las tablas de lookup para que crear users/tareas funcione de una. Claves **técnicas en inglés** para los enum-bound (`user_role`, `task_status`, `assignment_status`, `activity_status`, `action_type`) porque el código las matchea contra los enums del dominio; y valores de negocio **en español** para `company_status` (`Prospecto`, `Contactado`, `Negociación`, `Cliente`, `Inactivo`), que es libre. El seed **nunca borra** filas (upsert por descripción). Criterio: API/contrato en inglés, traducción en el front; solo lo realmente libre/creado por el usuario va en español.
 
 ---
 
@@ -179,8 +192,9 @@ export TEST_DATABASE_URL="$(node -e 'require("dotenv").config({quiet:true}); pro
 
 ```bash
 pnpm install
+pnpm db:seed        # seed idempotente de las tablas de lookup (status/roles)
 pnpm build          # nest build && tsc-alias  (output a dist/)
-pnpm start:dev      # watch mode
+pnpm start:dev      # watch mode → Swagger UI en http://localhost:3000/docs
 pnpm start:prod     # node dist/main
 pnpm test           # jest (integración skippeada salvo TEST_DATABASE_URL)
 pnpm test:e2e       # jest e2e (test/jest-e2e.json) — AppModule real contra la DB, self-cleaning
@@ -225,12 +239,13 @@ src/
   auth/                    # JWT: login (access+refresh), POST /auth/refresh, JwtAuthGuard (global), @Public, @CurrentActor
   prisma/                  # PrismaModule (@Global), PrismaService
   users/
-    domain/                # User, UserRole, UserAccessPolicy, puertos (UserRepository, PasswordHasher), errores
-    application/           # CreateUser, ChangePassword, ChangeUserRole, ListUsers, ViewUser, UserView
-    infrastructure/        # persistence (in-memory, prisma), hashing (scrypt)
-    dto/                   # CreateUserDto, ChangePasswordDto, ChangeUserRoleDto
-    tests/                 # user-management.steps.ts, user-directory.steps.ts, doubles/
-    users.controller.ts | users.module.ts
+    domain/                # User, UserRole, UserAccessPolicy, Role + RoleRepository, puertos, errores
+    application/           # CreateUser, ChangePassword, ChangeUserRole, ListUsers, ViewUser, UserView,
+                           #   DeactivateUser, CreateRole, ListRoles
+    infrastructure/        # persistence (in-memory, prisma) para User y Role, hashing (scrypt)
+    dto/                   # CreateUserDto, ChangePasswordDto, ChangeUserRoleDto, CreateRoleDto
+    tests/                 # user-management.steps.ts, user-directory.steps.ts, role-management.steps.ts, doubles/
+    users.controller.ts | roles.controller.ts | users.module.ts
   tasks/
     domain/                # Task, TaskAccessPolicy, errores
     application/           # CreateTask, ViewTask, ReassignTask, ArchiveTask
@@ -242,15 +257,16 @@ src/
     domain/ application/ infrastructure/ dto/ tests/   # Contact, CreateContact
     contacts.controller.ts | contacts.module.ts
   companies/
-    domain/                # Company, CompanyAccessPolicy, CompanyContactLink, errores
-    application/           # CreateCompany, LinkContactToCompany
+    domain/                # Company, CompanyAccessPolicy, CompanyContactLink, CompanyStatus + repo, errores
+    application/           # CreateCompany, LinkContactToCompany, …, DeleteCompany,
+                           #   CreateCompanyStatus, ListCompanyStatuses
     infrastructure/ dto/ tests/
-    companies.controller.ts | companies.module.ts
+    companies.controller.ts | company-statuses.controller.ts | companies.module.ts
   task-activities/         # TaskActivity, LogTaskActivity + ViewActivityLog
                            #   (POST/GET /tasks/:id/activities)
   task-assignments/        # TaskAssignment (historial), ViewAssignmentHistory + RespondToAssignment
                            #   (GET /tasks/:taskId/assignments, POST .../:id/accept|reject)
 test/                      # app.e2e-spec.ts (e2e real-DB, JWT), setup-e2e.ts, jest-e2e.json
 specs/                     # *.feature (Gherkin)
-prisma/schema.prisma
+prisma/schema.prisma | prisma/seed.ts   # schema + seed idempotente de lookups
 ```
