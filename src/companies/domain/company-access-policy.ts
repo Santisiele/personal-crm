@@ -33,6 +33,14 @@ export class CompanyAccessPolicy {
     return this.isPrivileged(actor);
   }
 
+  /**
+   * Managing the `company_status` catalogue (creating and listing statuses) is
+   * an admin surface restricted to CREATORs only.
+   */
+  canManageStatuses(actor: Actor): boolean {
+    return actor.role === UserRole.CREATOR;
+  }
+
   private isPrivileged(actor: Actor): boolean {
     return CompanyAccessPolicy.PRIVILEGED_ROLES.includes(actor.role);
   }

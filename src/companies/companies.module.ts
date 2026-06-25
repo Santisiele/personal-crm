@@ -6,6 +6,7 @@ import {
   ContactRepository,
 } from '@/contacts/domain/contact.repository';
 import { CompaniesController } from '@/companies/companies.controller';
+import { CompanyStatusesController } from '@/companies/company-statuses.controller';
 import {
   COMPANY_REPOSITORY,
   CompanyRepository,
@@ -14,9 +15,16 @@ import {
   COMPANY_CONTACT_LINK_REPOSITORY,
   CompanyContactLinkRepository,
 } from '@/companies/domain/company-contact-link.repository';
+import {
+  COMPANY_STATUS_REPOSITORY,
+  CompanyStatusRepository,
+} from '@/companies/domain/company-status.repository';
 import { PrismaCompanyRepository } from '@/companies/infrastructure/persistence/prisma-company.repository';
 import { PrismaCompanyContactLinkRepository } from '@/companies/infrastructure/persistence/prisma-company-contact-link.repository';
+import { PrismaCompanyStatusRepository } from '@/companies/infrastructure/persistence/prisma-company-status.repository';
 import { CreateCompany } from '@/companies/application/create-company.use-case';
+import { CreateCompanyStatus } from '@/companies/application/create-company-status.use-case';
+import { ListCompanyStatuses } from '@/companies/application/list-company-statuses.use-case';
 import { LinkContactToCompany } from '@/companies/application/link-contact-to-company.use-case';
 import { ListCompanies } from '@/companies/application/list-companies.use-case';
 import { ViewCompany } from '@/companies/application/view-company.use-case';
@@ -43,6 +51,12 @@ import { DeleteCompany } from '@/companies/application/delete-company.use-case';
       provide: COMPANY_CONTACT_LINK_REPOSITORY,
       useFactory: (prisma: PrismaService) =>
         new PrismaCompanyContactLinkRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: COMPANY_STATUS_REPOSITORY,
+      useFactory: (prisma: PrismaService) =>
+        new PrismaCompanyStatusRepository(prisma),
       inject: [PrismaService],
     },
     {
@@ -100,8 +114,20 @@ import { DeleteCompany } from '@/companies/application/delete-company.use-case';
         new DeleteCompany(companies),
       inject: [COMPANY_REPOSITORY],
     },
+    {
+      provide: CreateCompanyStatus,
+      useFactory: (statuses: CompanyStatusRepository) =>
+        new CreateCompanyStatus(statuses),
+      inject: [COMPANY_STATUS_REPOSITORY],
+    },
+    {
+      provide: ListCompanyStatuses,
+      useFactory: (statuses: CompanyStatusRepository) =>
+        new ListCompanyStatuses(statuses),
+      inject: [COMPANY_STATUS_REPOSITORY],
+    },
   ],
-  controllers: [CompaniesController],
+  controllers: [CompaniesController, CompanyStatusesController],
   exports: [
     CreateCompany,
     LinkContactToCompany,
@@ -110,6 +136,8 @@ import { DeleteCompany } from '@/companies/application/delete-company.use-case';
     EditCompany,
     ChangeCompanyStatus,
     DeleteCompany,
+    CreateCompanyStatus,
+    ListCompanyStatuses,
   ],
 })
 export class CompaniesModule {}
