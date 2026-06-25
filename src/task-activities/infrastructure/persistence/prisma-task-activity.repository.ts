@@ -2,6 +2,11 @@ import { PrismaClient } from '@prisma/client';
 import { TaskActivity } from '@/task-activities/domain/task-activity';
 import { TaskActivityRepository } from '@/task-activities/domain/task-activity.repository';
 
+/** Formats a stored date as an ISO calendar date ('YYYY-MM-DD'). */
+function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
 /**
  * Prisma-backed driven adapter implementing the TaskActivityRepository port.
  *
@@ -36,6 +41,31 @@ export class PrismaTaskActivityRepository implements TaskActivityRepository {
       },
     });
     activity.assignId(created.id.toString());
+  }
+
+  async findByTaskId(taskId: string): Promise<TaskActivity[]> {
+    const rows = await this.prisma.task_activity.findMany({
+      where: { task_id: BigInt(taskId) },
+      include: { activity_status: true, action_type: true },
+      // Most-recent first, by the activity date then id, mirroring how the
+      // assignments adapter orders a task's history.
+      orderBy: [{ activity_date: 'desc' }, { id: 'desc' }],
+    });
+    return rows.map((row) =>
+      TaskActivity.rehydrate({
+        id: row.id.toString(),
+        taskId: row.task_id.toString(),
+        authorId: row.user_id.toString(),
+        actionType: row.action_type.description,
+        status: row.activity_status.description,
+        activityDate: toIsoDate(row.activity_date),
+        description: row.description,
+        nextAction: row.next_action,
+        nextActionDate: row.next_action_date
+          ? toIsoDate(row.next_action_date)
+          : null,
+      }),
+    );
   }
 
   // The aggregate does not model activity statuses/types; they are looked up by

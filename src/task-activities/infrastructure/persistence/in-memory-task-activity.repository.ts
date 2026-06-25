@@ -19,6 +19,17 @@ export class InMemoryTaskActivityRepository implements TaskActivityRepository {
     return Promise.resolve();
   }
 
+  findByTaskId(taskId: string): Promise<TaskActivity[]> {
+    const log = this.activities
+      .filter((activity) => activity.taskId === taskId)
+      // Most-recent first: by activityDate then id (numeric), descending.
+      .sort((a, b) => {
+        const byDate = b.activityDate.localeCompare(a.activityDate);
+        return byDate !== 0 ? byDate : Number(b.id) - Number(a.id);
+      });
+    return Promise.resolve(log);
+  }
+
   /** Test/inspection helper: all activities saved so far. */
   all(): TaskActivity[] {
     return [...this.activities];

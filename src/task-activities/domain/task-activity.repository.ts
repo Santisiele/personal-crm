@@ -6,6 +6,8 @@ import { TaskActivity } from '@/task-activities/domain/task-activity';
  */
 export interface TaskActivityRepository {
   save(activity: TaskActivity): Promise<void>;
+  /** A task's activity log, most-recent first. */
+  findByTaskId(taskId: string): Promise<TaskActivity[]>;
 }
 
 export const TASK_ACTIVITY_REPOSITORY = Symbol('TaskActivityRepository');
