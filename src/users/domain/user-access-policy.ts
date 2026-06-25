@@ -11,6 +11,7 @@ import { UserId } from '@/users/domain/user';
  * - Viewing a single user is allowed to privileged actors or to the user
  *   themselves.
  * - Deactivating (logically deleting) a user is reserved for privileged actors.
+ * - Managing role definitions is reserved for the CREATOR alone.
  */
 export class UserAccessPolicy {
   private static readonly PRIVILEGED_ROLES = [UserRole.ADMIN, UserRole.CREATOR];
@@ -21,6 +22,11 @@ export class UserAccessPolicy {
 
   canDeactivate(actor: Actor): boolean {
     return this.isPrivileged(actor);
+  }
+
+  /** Creating and listing role definitions is reserved for the CREATOR. */
+  canManageRoles(actor: Actor): boolean {
+    return actor.role === UserRole.CREATOR;
   }
 
   canView(actor: Actor, targetUserId: UserId): boolean {
