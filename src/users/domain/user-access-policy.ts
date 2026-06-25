@@ -10,11 +10,16 @@ import { UserId } from '@/users/domain/user';
  * - Listing every user is reserved for privileged actors (ADMIN, CREATOR).
  * - Viewing a single user is allowed to privileged actors or to the user
  *   themselves.
+ * - Deactivating (logically deleting) a user is reserved for privileged actors.
  */
 export class UserAccessPolicy {
   private static readonly PRIVILEGED_ROLES = [UserRole.ADMIN, UserRole.CREATOR];
 
   canList(actor: Actor): boolean {
+    return this.isPrivileged(actor);
+  }
+
+  canDeactivate(actor: Actor): boolean {
     return this.isPrivileged(actor);
   }
 

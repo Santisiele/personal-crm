@@ -138,4 +138,30 @@ describe('User directory (e2e)', () => {
         .expect(404);
     });
   });
+
+  describe('DELETE /users/:id', () => {
+    it('lets an admin deactivate a user, dropping it from the listing (204)', async () => {
+      const victimId = await createUser(`E2E Dir Victim ${RUN}`, 'USER');
+
+      await request(app.getHttpServer())
+        .delete(`/users/${victimId}`)
+        .set(bearer(adminToken))
+        .expect(204);
+
+      const res = await request(app.getHttpServer())
+        .get('/users')
+        .set(bearer(adminToken))
+        .expect(200);
+
+      const ids = (res.body as Array<{ id: string }>).map((u) => u.id);
+      expect(ids).not.toContain(victimId);
+    });
+
+    it('forbids a plain user from deactivating a user (403)', () => {
+      return request(app.getHttpServer())
+        .delete(`/users/${otherId}`)
+        .set(bearer(ownerToken))
+        .expect(403);
+    });
+  });
 });

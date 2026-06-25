@@ -10,6 +10,10 @@ import { UserRepository } from '@/users/domain/user.repository';
  */
 export class InMemoryUserRepository implements UserRepository {
   private readonly users = new Map<UserId, User>();
+  // Ids of users that have been logically deleted (deactivated). They stay in
+  // `users` so findById can still resolve them, but are hidden from listing and
+  // login lookups, mirroring the `deleted_at` column in the database.
+  private readonly deactivated = new Set<UserId>();
   private sequence = 0;
 
   save(user: User): Promise<void> {
@@ -27,7 +31,7 @@ export class InMemoryUserRepository implements UserRepository {
 
   findByName(name: string): Promise<User | null> {
     for (const user of this.users.values()) {
-      if (user.name === name) {
+      if (user.name === name && !this.deactivated.has(user.id as UserId)) {
         return Promise.resolve(user);
       }
     }
@@ -35,6 +39,15 @@ export class InMemoryUserRepository implements UserRepository {
   }
 
   findAll(): Promise<User[]> {
-    return Promise.resolve(Array.from(this.users.values()));
+    return Promise.resolve(
+      Array.from(this.users.values()).filter(
+        (user) => !this.deactivated.has(user.id as UserId),
+      ),
+    );
+  }
+
+  softDelete(id: UserId): Promise<void> {
+    this.deactivated.add(id);
+    return Promise.resolve();
   }
 }

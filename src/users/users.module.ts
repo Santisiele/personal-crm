@@ -12,6 +12,7 @@ import { ScryptPasswordHasher } from '@/users/infrastructure/hashing/scrypt-pass
 import { CreateUser } from '@/users/application/create-user.use-case';
 import { ChangePassword } from '@/users/application/change-password.use-case';
 import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
+import { DeactivateUser } from '@/users/application/deactivate-user.use-case';
 import { ListUsers } from '@/users/application/list-users.use-case';
 import { ViewUser } from '@/users/application/view-user.use-case';
 
@@ -52,6 +53,11 @@ import { ViewUser } from '@/users/application/view-user.use-case';
       inject: [USER_REPOSITORY],
     },
     {
+      provide: DeactivateUser,
+      useFactory: (users: UserRepository) => new DeactivateUser(users),
+      inject: [USER_REPOSITORY],
+    },
+    {
       provide: ListUsers,
       useFactory: (users: UserRepository) => new ListUsers(users),
       inject: [USER_REPOSITORY],
@@ -67,6 +73,7 @@ import { ViewUser } from '@/users/application/view-user.use-case';
     CreateUser,
     ChangePassword,
     ChangeUserRole,
+    DeactivateUser,
     ListUsers,
     ViewUser,
     USER_REPOSITORY,

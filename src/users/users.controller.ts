@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -14,6 +15,7 @@ import type { Actor } from '@/shared/domain/actor';
 import { CreateUser } from '@/users/application/create-user.use-case';
 import { ChangePassword } from '@/users/application/change-password.use-case';
 import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
+import { DeactivateUser } from '@/users/application/deactivate-user.use-case';
 import { ListUsers } from '@/users/application/list-users.use-case';
 import { ViewUser } from '@/users/application/view-user.use-case';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
@@ -26,6 +28,7 @@ export class UsersController {
     private readonly createUser: CreateUser,
     private readonly changePassword: ChangePassword,
     private readonly changeUserRole: ChangeUserRole,
+    private readonly deactivateUser: DeactivateUser,
     private readonly listUsers: ListUsers,
     private readonly viewUser: ViewUser,
   ) {}
@@ -70,5 +73,14 @@ export class UsersController {
     @Body() body: ChangeUserRoleDto,
   ): Promise<void> {
     await this.changeUserRole.execute({ userId: id, role: body.role });
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deactivate(
+    @Param('id') id: string,
+    @CurrentActor() actor: Actor,
+  ): Promise<void> {
+    await this.deactivateUser.execute({ actor, userId: id });
   }
 }

@@ -56,7 +56,7 @@ export class PrismaUserRepository implements UserRepository {
 
   async findByName(name: string): Promise<User | null> {
     const row = await this.prisma.app_user.findFirst({
-      where: { name },
+      where: { name, deleted_at: null },
       include: { user_role: true },
     });
     if (!row) {
@@ -72,6 +72,7 @@ export class PrismaUserRepository implements UserRepository {
 
   async findAll(): Promise<User[]> {
     const rows = await this.prisma.app_user.findMany({
+      where: { deleted_at: null },
       include: { user_role: true },
       orderBy: { id: 'asc' },
     });
@@ -83,6 +84,13 @@ export class PrismaUserRepository implements UserRepository {
         passwordHash: row.user_password_hash,
       }),
     );
+  }
+
+  async softDelete(id: UserId, deletedBy: string): Promise<void> {
+    await this.prisma.app_user.update({
+      where: { id: BigInt(id) },
+      data: { deleted_at: new Date(), deleted_by: BigInt(deletedBy) },
+    });
   }
 
   private async resolveRoleId(role: UserRole): Promise<bigint> {
