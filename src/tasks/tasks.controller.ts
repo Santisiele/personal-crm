@@ -9,6 +9,17 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentActor } from '@/auth/current-actor.decorator';
 import type { Actor } from '@/shared/domain/actor';
 import { Task } from '@/tasks/domain/task';
@@ -24,6 +35,8 @@ import { ReassignTaskDto } from '@/tasks/dto/reassign-task.dto';
 import { ArchiveTaskDto } from '@/tasks/dto/archive-task.dto';
 import { ChangeTaskStatusDto } from '@/tasks/dto/change-task-status.dto';
 
+@ApiTags('tasks')
+@ApiBearerAuth('access-token')
 @Controller('tasks')
 export class TasksController {
   constructor(
@@ -36,6 +49,19 @@ export class TasksController {
   ) {}
 
   @Post()
+  @ApiOperation({
+    summary:
+      'Create a task (self-assigned by default; assigning to others requires privilege)',
+  })
+  @ApiCreatedResponse({
+    description: 'Task created, including dueDate, companyId and status.',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid payload.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Assigning to another user without privilege.',
+  })
   async create(@Body() body: CreateTaskDto, @CurrentActor() actor: Actor) {
     const task = await this.createTask.execute({
       actor,
@@ -50,6 +76,14 @@ export class TasksController {
   }
 
   @Get()
+  @ApiOperation({
+    summary:
+      'List tasks visible to the actor (owner/assignee; privileged see all)',
+  })
+  @ApiQuery({ name: 'assigneeId', required: false })
+  @ApiQuery({ name: 'companyId', required: false })
+  @ApiOkResponse({ description: 'Visible tasks, excluding archived ones.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
   async findAll(
     @Query() query: ListTasksQueryDto,
     @CurrentActor() actor: Actor,
@@ -62,6 +96,14 @@ export class TasksController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'View a task by id' })
+  @ApiParam({ name: 'id', description: 'Task id.' })
+  @ApiOkResponse({
+    description: 'Task detail, including dueDate, companyId and status.',
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({ status: 403, description: 'Not allowed to view this task.' })
+  @ApiResponse({ status: 404, description: 'Task not found or archived.' })
   async findOne(@Param('id') id: string, @CurrentActor() actor: Actor) {
     const task = await this.viewTask.execute({ actor, taskId: id });
     return this.present(task);
@@ -69,6 +111,13 @@ export class TasksController {
 
   @Patch(':id/assignee')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Reassign a task (owner only)' })
+  @ApiParam({ name: 'id', description: 'Task id.' })
+  @ApiNoContentResponse({ description: 'Task reassigned.' })
+  @ApiResponse({ status: 400, description: 'Invalid payload.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({ status: 403, description: 'Only the owner can reassign.' })
+  @ApiResponse({ status: 404, description: 'Task not found or archived.' })
   async reassign(
     @Param('id') id: string,
     @Body() body: ReassignTaskDto,
@@ -82,6 +131,16 @@ export class TasksController {
   }
 
   @Patch(':id/status')
+  @ApiOperation({ summary: 'Change a task status' })
+  @ApiParam({ name: 'id', description: 'Task id.' })
+  @ApiOkResponse({ description: 'Updated task with its new status.' })
+  @ApiResponse({ status: 400, description: 'Invalid status value.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Not allowed to change this task status.',
+  })
+  @ApiResponse({ status: 404, description: 'Task not found or archived.' })
   async changeStatus(
     @Param('id') id: string,
     @Body() body: ChangeTaskStatusDto,
@@ -97,6 +156,21 @@ export class TasksController {
 
   @Post(':id/archive')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Archive a task (logical delete; owner or privileged)',
+  })
+  @ApiParam({ name: 'id', description: 'Task id.' })
+  @ApiNoContentResponse({ description: 'Task archived.' })
+  @ApiResponse({ status: 400, description: 'Invalid payload.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Only the owner or a privileged user can archive.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Task not found or already archived.',
+  })
   async archive(
     @Param('id') id: string,
     @Body() body: ArchiveTaskDto,

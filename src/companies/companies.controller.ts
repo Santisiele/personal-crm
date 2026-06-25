@@ -9,6 +9,16 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentActor } from '@/auth/current-actor.decorator';
 import type { Actor } from '@/shared/domain/actor';
 import { Company } from '@/companies/domain/company';
@@ -27,6 +37,8 @@ import { LinkContactDto } from '@/companies/dto/link-contact.dto';
 import { EditCompanyDto } from '@/companies/dto/edit-company.dto';
 import { ChangeCompanyStatusDto } from '@/companies/dto/change-company-status.dto';
 
+@ApiTags('companies')
+@ApiBearerAuth('access-token')
 @Controller('companies')
 export class CompaniesController {
   constructor(
@@ -40,6 +52,16 @@ export class CompaniesController {
   ) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a company (ADMIN/CREATOR only)' })
+  @ApiCreatedResponse({
+    description: 'Company created; returns the company view.',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Actor is not privileged (ADMIN/CREATOR).',
+  })
   async create(@Body() body: CreateCompanyDto, @CurrentActor() actor: Actor) {
     const company = await this.createCompany.execute({
       actor,
@@ -53,18 +75,42 @@ export class CompaniesController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'List all companies (any authenticated user)' })
+  @ApiOkResponse({ description: 'Returns the list of company views.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
   async findAll() {
     const companies = await this.listCompanies.execute();
     return companies.map((company) => this.serialize(company));
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'View a company with its linked contacts' })
+  @ApiParam({ name: 'id', description: 'Company identifier.' })
+  @ApiOkResponse({
+    description: 'Returns the company view including linked contacts.',
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({ status: 404, description: 'Company not found.' })
   async findOne(@Param('id') id: string) {
     const result = await this.viewCompany.execute({ companyId: id });
     return this.serializeWithContacts(result);
   }
 
   @Post(':id/contacts')
+  @ApiOperation({
+    summary: 'Link an existing contact to a company (privileged only)',
+  })
+  @ApiParam({ name: 'id', description: 'Company identifier.' })
+  @ApiCreatedResponse({
+    description: 'Contact linked; returns the link details.',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Actor is not privileged (ADMIN/CREATOR).',
+  })
+  @ApiResponse({ status: 404, description: 'Company or contact not found.' })
   async linkContact(
     @Param('id') id: string,
     @Body() body: LinkContactDto,
@@ -87,6 +133,16 @@ export class CompaniesController {
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Edit company fields (privileged only)' })
+  @ApiParam({ name: 'id', description: 'Company identifier.' })
+  @ApiOkResponse({ description: 'Company updated; returns the company view.' })
+  @ApiResponse({ status: 400, description: 'Validation failed.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Actor is not privileged (ADMIN/CREATOR).',
+  })
+  @ApiResponse({ status: 404, description: 'Company not found.' })
   async edit(
     @Param('id') id: string,
     @Body() body: EditCompanyDto,
@@ -105,6 +161,16 @@ export class CompaniesController {
   }
 
   @Patch(':id/status')
+  @ApiOperation({ summary: 'Change a company status (privileged only)' })
+  @ApiParam({ name: 'id', description: 'Company identifier.' })
+  @ApiOkResponse({ description: 'Status changed; returns the company view.' })
+  @ApiResponse({ status: 400, description: 'Validation failed.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Actor is not privileged (ADMIN/CREATOR).',
+  })
+  @ApiResponse({ status: 404, description: 'Company or status not found.' })
   async changeStatus(
     @Param('id') id: string,
     @Body() body: ChangeCompanyStatusDto,
@@ -120,6 +186,17 @@ export class CompaniesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a company logically (privileged only)' })
+  @ApiParam({ name: 'id', description: 'Company identifier.' })
+  @ApiNoContentResponse({
+    description: 'Company deleted; no content returned.',
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Actor is not privileged (ADMIN/CREATOR).',
+  })
+  @ApiResponse({ status: 404, description: 'Company not found.' })
   async remove(@Param('id') id: string, @CurrentActor() actor: Actor) {
     await this.deleteCompany.execute({ actor, companyId: id });
   }

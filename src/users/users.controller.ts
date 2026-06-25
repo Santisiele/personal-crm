@@ -9,6 +9,16 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentActor } from '@/auth/current-actor.decorator';
 import { Public } from '@/auth/public.decorator';
 import type { Actor } from '@/shared/domain/actor';
@@ -22,6 +32,7 @@ import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { ChangePasswordDto } from '@/users/dto/change-password.dto';
 import { ChangeUserRoleDto } from '@/users/dto/change-user-role.dto';
 
+@ApiTags('users')
 @Controller('users')
 export class UsersController {
   constructor(
@@ -35,6 +46,15 @@ export class UsersController {
 
   @Public()
   @Post()
+  @ApiOperation({ summary: 'Register a new user' })
+  @ApiCreatedResponse({
+    description: 'User created; returns id, name and role.',
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed.' })
+  @ApiResponse({
+    status: 409,
+    description: 'A user with that name already exists.',
+  })
   async create(@Body() body: CreateUserDto) {
     const user = await this.createUser.execute({
       name: body.name,
@@ -45,17 +65,39 @@ export class UsersController {
   }
 
   @Get()
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'List all users (privileged only)' })
+  @ApiOkResponse({
+    description: 'Returns the user directory as a list of safe user views.',
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Actor is not privileged (ADMIN/CREATOR).',
+  })
   async findAll(@CurrentActor() actor: Actor) {
     return this.listUsers.execute({ actor });
   }
 
   @Get(':id')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'View a single user by id' })
+  @ApiParam({ name: 'id', description: 'User id' })
+  @ApiOkResponse({ description: 'Returns the safe user view.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({ status: 403, description: 'Actor may not view this user.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
   async findOne(@Param('id') id: string, @CurrentActor() actor: Actor) {
     return this.viewUser.execute({ actor, userId: id });
   }
 
   @Patch('me/password')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: "Change the authenticated user's own password" })
+  @ApiNoContentResponse({ description: 'Password changed.' })
+  @ApiResponse({ status: 400, description: 'Validation failed.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
   async changeOwnPassword(
     @CurrentActor() actor: Actor,
     @Body() body: ChangePasswordDto,
@@ -68,6 +110,14 @@ export class UsersController {
 
   @Patch(':id/role')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: "Change a user's role" })
+  @ApiParam({ name: 'id', description: 'User id' })
+  @ApiNoContentResponse({ description: 'Role changed.' })
+  @ApiResponse({ status: 400, description: 'Validation failed.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({ status: 403, description: 'Actor may not change roles.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
   async changeRole(
     @Param('id') id: string,
     @Body() body: ChangeUserRoleDto,
@@ -77,6 +127,18 @@ export class UsersController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Deactivate a user (logical delete, privileged only)',
+  })
+  @ApiParam({ name: 'id', description: 'User id' })
+  @ApiNoContentResponse({ description: 'User deactivated.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Actor is not privileged (ADMIN/CREATOR).',
+  })
+  @ApiResponse({ status: 404, description: 'User not found.' })
   async deactivate(
     @Param('id') id: string,
     @CurrentActor() actor: Actor,
