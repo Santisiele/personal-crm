@@ -1,9 +1,12 @@
 import { loadFeature, defineFeature, DefineStepFunction } from 'jest-cucumber';
+import { Actor } from '@/shared/domain/actor';
+import { UserRole } from '@/users/domain/user-role';
 import { Contact } from '@/contacts/domain/contact';
 import { CreateContact } from '@/contacts/application/create-contact.use-case';
 import { ListContacts } from '@/contacts/application/list-contacts.use-case';
 import { ViewContact } from '@/contacts/application/view-contact.use-case';
 import { UpdateContact } from '@/contacts/application/update-contact.use-case';
+import { DeleteContact } from '@/contacts/application/delete-contact.use-case';
 import { ContactNotFoundError } from '@/contacts/domain/contact-not-found.error';
 import { InMemoryContactRepository } from '@/contacts/infrastructure/persistence/in-memory-contact.repository';
 
@@ -17,12 +20,15 @@ const BIRTH = '1990-05-17';
 
 const MISSING_ID = '999999';
 
+const ACTOR: Actor = { id: '42', role: UserRole.USER };
+
 defineFeature(feature, (test) => {
   let contacts: InMemoryContactRepository;
   let createContact: CreateContact;
   let listContacts: ListContacts;
   let viewContact: ViewContact;
   let updateContact: UpdateContact;
+  let deleteContact: DeleteContact;
   let created: Contact;
   let listed: Contact[];
   let viewed: Contact;
@@ -34,6 +40,7 @@ defineFeature(feature, (test) => {
     listContacts = new ListContacts(contacts);
     viewContact = new ViewContact(contacts);
     updateContact = new UpdateContact(contacts);
+    deleteContact = new DeleteContact(contacts);
     caught = undefined;
   });
 
@@ -158,6 +165,51 @@ defineFeature(feature, (test) => {
           contactId: MISSING_ID,
           contactName: 'Nobody',
         });
+      } catch (error) {
+        caught = error;
+      }
+    });
+    then('a contact-not-found error is raised', () => {
+      expect(caught).toBeInstanceOf(ContactNotFoundError);
+    });
+  });
+
+  const whenThatContactIsDeleted = (when: DefineStepFunction) => {
+    when('that contact is deleted', async () => {
+      await deleteContact.execute({
+        actor: ACTOR,
+        contactId: created.id as string,
+      });
+    });
+  };
+
+  test('A contact is deleted and no longer listed', ({ given, when, then }) => {
+    givenAContactExists(given);
+    whenThatContactIsDeleted(when);
+    then('the contact is not in the listing', async () => {
+      listed = await listContacts.execute();
+      expect(listed.some((c) => c.id === created.id)).toBe(false);
+    });
+  });
+
+  test('A deleted contact can still be viewed by id', ({
+    given,
+    when,
+    then,
+  }) => {
+    givenAContactExists(given);
+    whenThatContactIsDeleted(when);
+    then('the contact can still be viewed by id', async () => {
+      viewed = await viewContact.execute({ contactId: created.id as string });
+      expect(viewed.id).toBe(created.id);
+      expect(viewed.contactName).toBe(CONTACT_NAME);
+    });
+  });
+
+  test('Deleting a contact that does not exist', ({ when, then }) => {
+    when('a contact that does not exist is deleted', async () => {
+      try {
+        await deleteContact.execute({ actor: ACTOR, contactId: MISSING_ID });
       } catch (error) {
         caught = error;
       }

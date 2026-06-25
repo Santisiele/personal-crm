@@ -179,4 +179,33 @@ describe('Contacts (e2e)', () => {
         .expect(404);
     });
   });
+
+  describe('deleting a contact', () => {
+    it('soft-deletes a contact (204) and drops it from the listing', async () => {
+      const id = await createContact({
+        contactName: `E2E Delete ${RUN}`,
+        email: 'delete@example.com',
+      });
+
+      await request(app.getHttpServer())
+        .delete(`/contacts/${id}`)
+        .set(bearer(userToken))
+        .expect(204);
+
+      const res = await request(app.getHttpServer())
+        .get('/contacts')
+        .set(bearer(userToken))
+        .expect(200);
+
+      const list = res.body as Array<{ id: string }>;
+      expect(list.some((c) => c.id === id)).toBe(false);
+    });
+
+    it('returns 404 when deleting a contact that does not exist', () => {
+      return request(app.getHttpServer())
+        .delete('/contacts/999999999999999')
+        .set(bearer(userToken))
+        .expect(404);
+    });
+  });
 });

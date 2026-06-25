@@ -31,3 +31,17 @@ Then the stored contact keeps its original name and birth
 Scenario: Editing a contact that does not exist
 When a contact that does not exist is edited
 Then a contact-not-found error is raised
+
+Scenario: A contact is deleted and no longer listed
+Given a contact exists
+When that contact is deleted
+Then the contact is not in the listing
+
+Scenario: A deleted contact can still be viewed by id
+Given a contact exists
+When that contact is deleted
+Then the contact can still be viewed by id
+
+Scenario: Deleting a contact that does not exist
+When a contact that does not exist is deleted
+Then a contact-not-found error is raised

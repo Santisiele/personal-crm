@@ -50,8 +50,18 @@ export class PrismaContactRepository implements ContactRepository {
   }
 
   async findAll(): Promise<Contact[]> {
-    const rows = await this.prisma.contact.findMany({ orderBy: { id: 'asc' } });
+    const rows = await this.prisma.contact.findMany({
+      where: { deleted_at: null },
+      orderBy: { id: 'asc' },
+    });
     return rows.map((row) => this.toDomain(row));
+  }
+
+  async softDelete(id: ContactId, deletedBy: string): Promise<void> {
+    await this.prisma.contact.update({
+      where: { id: BigInt(id) },
+      data: { deleted_at: new Date(), deleted_by: BigInt(deletedBy) },
+    });
   }
 
   private toDomain(row: {

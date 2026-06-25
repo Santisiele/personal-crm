@@ -1,8 +1,21 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { CurrentActor } from '@/auth/current-actor.decorator';
+import type { Actor } from '@/shared/domain/actor';
 import { CreateContact } from '@/contacts/application/create-contact.use-case';
 import { ListContacts } from '@/contacts/application/list-contacts.use-case';
 import { ViewContact } from '@/contacts/application/view-contact.use-case';
 import { UpdateContact } from '@/contacts/application/update-contact.use-case';
+import { DeleteContact } from '@/contacts/application/delete-contact.use-case';
 import { CreateContactDto } from '@/contacts/dto/create-contact.dto';
 import { UpdateContactDto } from '@/contacts/dto/update-contact.dto';
 import { Contact } from '@/contacts/domain/contact';
@@ -14,6 +27,7 @@ export class ContactsController {
     private readonly listContacts: ListContacts,
     private readonly viewContact: ViewContact,
     private readonly updateContact: UpdateContact,
+    private readonly deleteContact: DeleteContact,
   ) {}
 
   @Post()
@@ -47,6 +61,15 @@ export class ContactsController {
       birth: body.birth,
     });
     return this.present(contact);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @Param('id') id: string,
+    @CurrentActor() actor: Actor,
+  ): Promise<void> {
+    await this.deleteContact.execute({ actor, contactId: id });
   }
 
   private present(contact: Contact) {

@@ -11,6 +11,7 @@ import { ContactRepository } from '@/contacts/domain/contact.repository';
  */
 export class InMemoryContactRepository implements ContactRepository {
   private readonly contacts = new Map<ContactId, Contact>();
+  private readonly deleted = new Set<ContactId>();
   private sequence = 0;
 
   save(contact: Contact): Promise<void> {
@@ -23,10 +24,21 @@ export class InMemoryContactRepository implements ContactRepository {
   }
 
   findById(id: ContactId): Promise<Contact | null> {
+    // Soft-deleted contacts stay retrievable by id so historical references
+    // remain viewable.
     return Promise.resolve(this.contacts.get(id) ?? null);
   }
 
   findAll(): Promise<Contact[]> {
-    return Promise.resolve([...this.contacts.values()]);
+    return Promise.resolve(
+      [...this.contacts.values()].filter(
+        (contact) => !this.deleted.has(contact.id as ContactId),
+      ),
+    );
+  }
+
+  softDelete(id: ContactId, _deletedBy: string): Promise<void> {
+    this.deleted.add(id);
+    return Promise.resolve();
   }
 }
