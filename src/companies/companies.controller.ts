@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { CurrentActor } from '@/auth/current-actor.decorator';
 import type { Actor } from '@/shared/domain/actor';
 import { Company } from '@/companies/domain/company';
@@ -11,6 +21,7 @@ import {
 } from '@/companies/application/view-company.use-case';
 import { EditCompany } from '@/companies/application/edit-company.use-case';
 import { ChangeCompanyStatus } from '@/companies/application/change-company-status.use-case';
+import { DeleteCompany } from '@/companies/application/delete-company.use-case';
 import { CreateCompanyDto } from '@/companies/dto/create-company.dto';
 import { LinkContactDto } from '@/companies/dto/link-contact.dto';
 import { EditCompanyDto } from '@/companies/dto/edit-company.dto';
@@ -25,6 +36,7 @@ export class CompaniesController {
     private readonly viewCompany: ViewCompany,
     private readonly editCompany: EditCompany,
     private readonly changeCompanyStatus: ChangeCompanyStatus,
+    private readonly deleteCompany: DeleteCompany,
   ) {}
 
   @Post()
@@ -104,6 +116,12 @@ export class CompaniesController {
       status: body.status,
     });
     return this.serialize(company);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id') id: string, @CurrentActor() actor: Actor) {
+    await this.deleteCompany.execute({ actor, companyId: id });
   }
 
   private serialize(company: Company) {

@@ -10,6 +10,7 @@ import { CompanyRepository } from '@/companies/domain/company.repository';
  */
 export class InMemoryCompanyRepository implements CompanyRepository {
   private readonly companies = new Map<CompanyId, Company>();
+  private readonly deleted = new Set<CompanyId>();
   private sequence = 0;
 
   save(company: Company): Promise<void> {
@@ -26,6 +27,17 @@ export class InMemoryCompanyRepository implements CompanyRepository {
   }
 
   findAll(): Promise<Company[]> {
-    return Promise.resolve([...this.companies.values()]);
+    // Soft-deleted companies are excluded from the listing but still kept around
+    // for findById, mirroring the database's `deleted_at` filter.
+    return Promise.resolve(
+      [...this.companies.values()].filter(
+        (company) => !this.deleted.has(company.id as CompanyId),
+      ),
+    );
+  }
+
+  softDelete(id: CompanyId, _deletedBy: string): Promise<void> {
+    this.deleted.add(id);
+    return Promise.resolve();
   }
 }

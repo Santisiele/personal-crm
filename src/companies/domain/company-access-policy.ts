@@ -28,6 +28,11 @@ export class CompanyAccessPolicy {
     return this.isPrivileged(actor);
   }
 
+  /** Deleting a company is managing it, so same rule as creation. */
+  canDelete(actor: Actor): boolean {
+    return this.isPrivileged(actor);
+  }
+
   private isPrivileged(actor: Actor): boolean {
     return CompanyAccessPolicy.PRIVILEGED_ROLES.includes(actor.role);
   }

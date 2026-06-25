@@ -80,10 +80,20 @@ export class PrismaCompanyRepository implements CompanyRepository {
 
   async findAll(): Promise<Company[]> {
     const rows = await this.prisma.company.findMany({
+      where: { deleted_at: null },
       include: { company_status: true },
       orderBy: { id: 'asc' },
     });
     return rows.map((row) => this.toDomain(row));
+  }
+
+  async softDelete(id: CompanyId, deletedBy: string): Promise<void> {
+    // Logical delete: stamp the audit columns instead of removing the row, so
+    // `findById` keeps resolving the company for historical references.
+    await this.prisma.company.update({
+      where: { id: BigInt(id) },
+      data: { deleted_at: new Date(), deleted_by: BigInt(deletedBy) },
+    });
   }
 
   private toDomain(row: {

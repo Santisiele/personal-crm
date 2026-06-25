@@ -272,4 +272,49 @@ describe('Companies (e2e)', () => {
         .expect(404);
     });
   });
+
+  describe('deleting a company', () => {
+    it('lets an admin delete a company and drops it from the listing (204)', async () => {
+      const companyId = await createCompany(`E2E Delete Co ${RUN}`);
+
+      // It is present before the deletion.
+      const before = await request(app.getHttpServer())
+        .get('/companies')
+        .set(bearer(adminToken))
+        .expect(200);
+      expect(
+        (before.body as Array<{ id: string }>).some((c) => c.id === companyId),
+      ).toBe(true);
+
+      await request(app.getHttpServer())
+        .delete(`/companies/${companyId}`)
+        .set(bearer(adminToken))
+        .expect(204);
+
+      // The logical delete excludes it from the listing...
+      const after = await request(app.getHttpServer())
+        .get('/companies')
+        .set(bearer(adminToken))
+        .expect(200);
+      expect(
+        (after.body as Array<{ id: string }>).some((c) => c.id === companyId),
+      ).toBe(false);
+
+      // ...but it is still retrievable by id for historical references.
+      const reread = await request(app.getHttpServer())
+        .get(`/companies/${companyId}`)
+        .set(bearer(adminToken))
+        .expect(200);
+      expect((reread.body as { id: string }).id).toBe(companyId);
+    });
+
+    it('forbids a normal user from deleting (403)', async () => {
+      const companyId = await createCompany(`E2E Delete Denied ${RUN}`);
+
+      await request(app.getHttpServer())
+        .delete(`/companies/${companyId}`)
+        .set(bearer(userToken))
+        .expect(403);
+    });
+  });
 });

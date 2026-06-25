@@ -22,6 +22,7 @@ import { ListCompanies } from '@/companies/application/list-companies.use-case';
 import { ViewCompany } from '@/companies/application/view-company.use-case';
 import { EditCompany } from '@/companies/application/edit-company.use-case';
 import { ChangeCompanyStatus } from '@/companies/application/change-company-status.use-case';
+import { DeleteCompany } from '@/companies/application/delete-company.use-case';
 
 /**
  * Composition root for the companies context. Binds the repository ports to
@@ -93,6 +94,12 @@ import { ChangeCompanyStatus } from '@/companies/application/change-company-stat
         new ChangeCompanyStatus(companies),
       inject: [COMPANY_REPOSITORY],
     },
+    {
+      provide: DeleteCompany,
+      useFactory: (companies: CompanyRepository) =>
+        new DeleteCompany(companies),
+      inject: [COMPANY_REPOSITORY],
+    },
   ],
   controllers: [CompaniesController],
   exports: [
@@ -102,6 +109,7 @@ import { ChangeCompanyStatus } from '@/companies/application/change-company-stat
     ViewCompany,
     EditCompany,
     ChangeCompanyStatus,
+    DeleteCompany,
   ],
 })
 export class CompaniesModule {}

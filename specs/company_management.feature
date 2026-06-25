@@ -63,3 +63,26 @@ Given a user is authenticated
 And a company exists
 When the user attempts to change the company status
 Then the status change is denied
+
+Scenario: An administrator deletes a company
+Given an administrator is authenticated
+And a company exists
+When the administrator deletes the company
+Then the company no longer appears in the listing
+
+Scenario: A deleted company can still be viewed by id
+Given an administrator is authenticated
+And a company exists
+When the administrator deletes the company
+Then the company can still be viewed by id
+
+Scenario: A user cannot delete a company
+Given a user is authenticated
+And a company exists
+When the user attempts to delete the company
+Then the deletion is denied
+
+Scenario: Deleting a company that does not exist
+Given an administrator is authenticated
+When a non-existent company is deleted
+Then the company is reported as not found

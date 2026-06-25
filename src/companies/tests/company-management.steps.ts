@@ -13,6 +13,7 @@ import {
 } from '@/companies/application/view-company.use-case';
 import { EditCompany } from '@/companies/application/edit-company.use-case';
 import { ChangeCompanyStatus } from '@/companies/application/change-company-status.use-case';
+import { DeleteCompany } from '@/companies/application/delete-company.use-case';
 import { CompanyNotFoundError } from '@/companies/domain/company-not-found.error';
 import { InMemoryCompanyRepository } from '@/companies/infrastructure/persistence/in-memory-company.repository';
 import { InMemoryCompanyContactLinkRepository } from '@/companies/infrastructure/persistence/in-memory-company-contact-link.repository';
@@ -35,6 +36,7 @@ defineFeature(feature, (test) => {
   let viewCompany: ViewCompany;
   let editCompany: EditCompany;
   let changeCompanyStatus: ChangeCompanyStatus;
+  let deleteCompany: DeleteCompany;
   let actor: Actor;
   let created: Company | null;
   let linked: CompanyContactLink | null;
@@ -57,6 +59,7 @@ defineFeature(feature, (test) => {
     viewCompany = new ViewCompany(companies, links, contacts);
     editCompany = new EditCompany(companies);
     changeCompanyStatus = new ChangeCompanyStatus(companies);
+    deleteCompany = new DeleteCompany(companies);
     created = null;
     linked = null;
     denied = false;
@@ -411,6 +414,90 @@ defineFeature(feature, (test) => {
     then('the status change is denied', () => {
       expect(denied).toBe(true);
       expect(restatused).toBeNull();
+    });
+  });
+
+  const deletesTheCompany = (when: DefineStepFunction, phrase: string) => {
+    when(phrase, async () => {
+      try {
+        await deleteCompany.execute({ actor, companyId });
+      } catch (error) {
+        if (error instanceof CompanyAccessDeniedError) {
+          denied = true;
+        } else {
+          throw error;
+        }
+      }
+    });
+  };
+
+  test('An administrator deletes a company', ({ given, and, when, then }) => {
+    authenticatedAs(
+      given,
+      'an administrator is authenticated',
+      UserRole.ADMIN,
+      'admin-1',
+    );
+    aCompanyExists(and);
+    deletesTheCompany(when, 'the administrator deletes the company');
+    then('the company no longer appears in the listing', async () => {
+      listed = await listCompanies.execute();
+      expect(listed.some((c) => c.id === companyId)).toBe(false);
+    });
+  });
+
+  test('A deleted company can still be viewed by id', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    authenticatedAs(
+      given,
+      'an administrator is authenticated',
+      UserRole.ADMIN,
+      'admin-1',
+    );
+    aCompanyExists(and);
+    deletesTheCompany(when, 'the administrator deletes the company');
+    then('the company can still be viewed by id', async () => {
+      viewed = await viewCompany.execute({ companyId });
+      expect(viewed).not.toBeNull();
+      expect(viewed.company.id).toBe(companyId);
+    });
+  });
+
+  test('A user cannot delete a company', ({ given, and, when, then }) => {
+    authenticatedAs(given, 'a user is authenticated', UserRole.USER, 'user-1');
+    aCompanyExists(and);
+    deletesTheCompany(when, 'the user attempts to delete the company');
+    then('the deletion is denied', async () => {
+      expect(denied).toBe(true);
+      listed = await listCompanies.execute();
+      expect(listed.some((c) => c.id === companyId)).toBe(true);
+    });
+  });
+
+  test('Deleting a company that does not exist', ({ given, when, then }) => {
+    authenticatedAs(
+      given,
+      'an administrator is authenticated',
+      UserRole.ADMIN,
+      'admin-1',
+    );
+    when('a non-existent company is deleted', async () => {
+      try {
+        await deleteCompany.execute({ actor, companyId: '99999' });
+      } catch (error) {
+        if (error instanceof CompanyNotFoundError) {
+          notFound = true;
+        } else {
+          throw error;
+        }
+      }
+    });
+    then('the company is reported as not found', () => {
+      expect(notFound).toBe(true);
     });
   });
 });
