@@ -563,5 +563,36 @@ describe('App (e2e)', () => {
         })
         .expect(403);
     });
+
+    it('lets a task owner read the activity log most-recent first (200)', async () => {
+      const taskId = await createOwnedTask('With a log');
+
+      for (const activityDate of ['2026-01-01', '2026-02-01']) {
+        await request(app.getHttpServer())
+          .post(`/tasks/${taskId}/activities`)
+          .set(bearer(ownerToken))
+          .send({ actionType: 'CALL', status: 'DONE', activityDate })
+          .expect(201);
+      }
+
+      const res = await request(app.getHttpServer())
+        .get(`/tasks/${taskId}/activities`)
+        .set(bearer(ownerToken))
+        .expect(200);
+      const body = res.body as Array<{ taskId: string; activityDate: string }>;
+      expect(body).toHaveLength(2);
+      expect(body[0].activityDate).toBe('2026-02-01');
+      expect(body[1].activityDate).toBe('2026-01-01');
+      expect(body.every((a) => a.taskId === taskId)).toBe(true);
+    });
+
+    it('forbids reading the log of a task you cannot view (403)', async () => {
+      const taskId = await createOwnedTask('Owner only log');
+
+      await request(app.getHttpServer())
+        .get(`/tasks/${taskId}/activities`)
+        .set(bearer(otherToken))
+        .expect(403);
+    });
   });
 });
