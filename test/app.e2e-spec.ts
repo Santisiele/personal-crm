@@ -661,5 +661,50 @@ describe('App (e2e)', () => {
         .set(bearer(otherToken))
         .expect(403);
     });
+
+    it('exposes the author and description on a logged activity', async () => {
+      const taskId = await createOwnedTask('Detailed activity');
+      await request(app.getHttpServer())
+        .post(`/tasks/${taskId}/activities`)
+        .set(bearer(ownerToken))
+        .send({
+          actionType: 'CALL',
+          status: 'DONE',
+          activityDate: '2026-05-05',
+          description: 'Spoke with the client',
+        })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get(`/tasks/${taskId}/activities`)
+        .set(bearer(ownerToken))
+        .expect(200);
+      const first = (res.body as Array<Record<string, unknown>>)[0];
+      expect(first.authorId).toBe(ownerId);
+      expect(first.description).toBe('Spoke with the client');
+    });
+
+    it('lets a privileged actor read the global activity feed (200)', async () => {
+      const taskId = await createOwnedTask('Feed task');
+      await request(app.getHttpServer())
+        .post(`/tasks/${taskId}/activities`)
+        .set(bearer(ownerToken))
+        .send({ actionType: 'NOTE', status: 'DONE', activityDate: '2026-05-06' })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get('/activities')
+        .set(bearer(adminToken))
+        .expect(200);
+      const feed = res.body as Array<{ taskId: string }>;
+      expect(feed.some((a) => a.taskId === taskId)).toBe(true);
+    });
+
+    it('forbids a plain user from the global activity feed (403)', () => {
+      return request(app.getHttpServer())
+        .get('/activities')
+        .set(bearer(ownerToken))
+        .expect(403);
+    });
   });
 });
