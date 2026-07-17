@@ -32,8 +32,8 @@ web/src/
   auth/           # AuthContext (sesión + usuario actual) y guards de ruta (RequireAuth, RequirePrivileged)
   hooks/          # useTasks, useUsers (TanStack Query) y userColors (color determinístico por usuario)
   components/     # AppLayout (shell + nav por rol), TaskModal (crear/editar), UserColorLegend
-  pages/          # Login, Dashboard, Calendar, Tasks, Contacts, Companies,
-                  #   CompanyDetail, CompanyStatuses, Users, Profile
+  pages/          # Login, Dashboard, Calendar, Tasks, Kanban, Inbox, Contacts,
+                  #   Companies, CompanyDetail, CompanyStatuses, Users, Profile
   labels.ts       # traducción ES de las claves técnicas (estados, roles) — solo para mostrar
   theme.ts        # tema Mantine
   main.tsx        # providers (Mantine, Modals, Notifications, Query, Router, Auth)
@@ -57,6 +57,12 @@ web/src/
 - Vistas **mes** y **semana** (FullCalendar, locale ES, semana desde el lunes).
 - **Click en un día** → crear tarea con esa fecha. **Click en un evento** → editar. **Drag de un evento** → reprogramar (`PATCH /tasks/:id` con el nuevo `dueDate`; si falla, revierte).
 - Cada tarea se pinta con un **color determinístico por persona** (`hooks/userColors.ts`), estable entre sesiones. Los privilegiados tienen un toggle **dueño/asignado** y una **leyenda** nombre↔color (los nombres salen de `GET /users`).
+
+## Tablero, actividad y bandeja
+
+- **Tablero** (`/board`): las tareas agrupadas en columnas Pendiente / En progreso / Completada, coloreadas por responsable. **Drag & drop nativo** (HTML5) entre columnas cambia el estado (`PATCH /tasks/:id/status`).
+- **Actividad de tarea**: un drawer por tarea (solo dueño o privilegiado, que es lo que autoriza la API) con el log de actividad y un formulario para registrar una llamada/reunión/email/nota (`GET`/`POST /tasks/:id/activities`).
+- **Bandeja** (`/inbox`): las asignaciones pendientes del actor con aceptar/rechazar (`GET /me/assignments/pending` + los endpoints accept/reject). Los títulos se resuelven del listado de tareas y hay un badge de conteo en la nav.
 
 ## Contactos y empresas
 

@@ -138,6 +138,7 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
   - `GET /tasks/:taskId/assignments` — historial completo, most-recent first (autorizado por la política de la tarea).
   - `POST /tasks/:taskId/assignments/:id/accept` — el assignee acepta (200).
   - `POST /tasks/:taskId/assignments/:id/reject` — el assignee rechaza (200).
+  - `GET /me/assignments/pending` (`MyAssignmentsController`) — las asignaciones **pendientes propias** del actor (su bandeja), most-recent first. Como el historial de una tarea es owner-gated, un assignee que no es dueño no tenía forma de descubrir sus asignaciones pendientes para responderlas; este endpoint las devuelve acotadas a `actor.id` (sin política extra: solo ve las propias). Apoyado en `TaskAssignmentRepository.findPendingByAssignee` y el caso de uso `ListMyPendingAssignments`.
 - **Relación con `tasks`**: este contexto **lee/extiende el historial**; `tasks` solo actualiza la asignación más reciente en su lugar al reasignar (eso no se toca acá). `TaskAssignmentsModule` importa `TasksModule` (reusa `TASK_REPOSITORY` y `TaskAccessPolicy`).
 
 ### Shared / common / auth
