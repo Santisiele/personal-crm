@@ -46,19 +46,25 @@ export class UsersController {
 
   @Public()
   @Post()
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiCreatedResponse({
-    description: 'User created; returns id, name and role.',
+  @ApiOperation({
+    summary: 'Register a new user (always a plain USER; role is not accepted)',
   })
-  @ApiResponse({ status: 400, description: 'Validation failed.' })
+  @ApiCreatedResponse({
+    description: 'User created; returns id, name and role (always USER).',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation failed (e.g. a role was supplied).',
+  })
   @ApiResponse({
     status: 409,
     description: 'A user with that name already exists.',
   })
   async create(@Body() body: CreateUserDto) {
+    // Registration never confers privilege: the use case always mints a USER.
+    // Elevating a role goes through PATCH /users/:id/role, which is authorized.
     const user = await this.createUser.execute({
       name: body.name,
-      role: body.role,
       password: body.password,
     });
     return { id: user.id, name: user.name, role: user.role };

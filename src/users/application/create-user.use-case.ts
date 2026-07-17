@@ -6,14 +6,18 @@ import { UserRepository } from '@/users/domain/user.repository';
 
 export interface CreateUserCommand {
   name: string;
-  role: UserRole;
   password: string;
 }
 
 /**
- * Application service orchestrating user creation. Depends only on domain ports
- * (Dependency Inversion), so it is agnostic to persistence and hashing
+ * Application service orchestrating user registration. Depends only on domain
+ * ports (Dependency Inversion), so it is agnostic to persistence and hashing
  * strategies. Identity is assigned by the repository on save.
+ *
+ * Registration always mints a plain USER: sign-up must never confer privilege.
+ * Elevated roles are reached solely through an authorized grant (ChangeUserRole,
+ * gated by UserAccessPolicy.canAssignRole), so a public, unauthenticated caller
+ * cannot register as an ADMIN or CREATOR.
  */
 export class CreateUser {
   constructor(
@@ -27,7 +31,7 @@ export class CreateUser {
     }
     const user = User.create({
       name: command.name,
-      role: command.role,
+      role: UserRole.USER,
       passwordHash: await this.hasher.hash(command.password),
     });
     await this.users.save(user);

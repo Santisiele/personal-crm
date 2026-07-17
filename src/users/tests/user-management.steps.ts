@@ -31,14 +31,6 @@ defineFeature(feature, (test) => {
     conflictRejected = false;
   });
 
-  const anAdministratorIsAuthenticated = (given: DefineStepFunction) => {
-    given('an administrator is authenticated', () => {
-      // The creation scenarios exercise no authorization rule (there is no
-      // rejection scenario), so the authenticated admin is just the acting
-      // context. Enforcement is introduced where a scenario demands it.
-    });
-  };
-
   const aCreatorIsAuthenticated = (given: DefineStepFunction) => {
     given('a creator is authenticated', async () => {
       // Role assignment is gated, so the acting principal must be a real stored
@@ -53,48 +45,24 @@ defineFeature(feature, (test) => {
     });
   };
 
-  const createsAUserWithRole = (when: DefineStepFunction) => {
-    when(/^creates a user with role (.*)$/, async (role: string) => {
+  test('Registering a user creates a plain user', ({ when, then, and }) => {
+    when('someone registers', async () => {
+      // Registration takes no role: the use case always mints a plain USER, so
+      // sign-up can never confer privilege.
       createdUser = await createUser.execute({
         name: 'Jane Doe',
-        role: UserRole[role as keyof typeof UserRole],
         password: 'initial-password',
       });
     });
-  };
 
-  const theUserShouldBeStored = (then: DefineStepFunction) => {
     then('the user should be stored', async () => {
       const stored = await users.findById(createdUser.id!);
       expect(stored).not.toBeNull();
     });
-  };
 
-  const theUserRoleShouldBe = (and: DefineStepFunction) => {
-    and(/^the user role should be (.*)$/, (role: string) => {
-      expect(createdUser.role).toBe(UserRole[role as keyof typeof UserRole]);
+    and('the user role should be USER', () => {
+      expect(createdUser.role).toBe(UserRole.USER);
     });
-  };
-
-  test('Create a normal user', ({ given, when, then, and }) => {
-    anAdministratorIsAuthenticated(given);
-    createsAUserWithRole(when);
-    theUserShouldBeStored(then);
-    theUserRoleShouldBe(and);
-  });
-
-  test('Create an administrator user', ({ given, when, then, and }) => {
-    anAdministratorIsAuthenticated(given);
-    createsAUserWithRole(when);
-    theUserShouldBeStored(then);
-    theUserRoleShouldBe(and);
-  });
-
-  test('Create a creator user', ({ given, when, then, and }) => {
-    anAdministratorIsAuthenticated(given);
-    createsAUserWithRole(when);
-    theUserShouldBeStored(then);
-    theUserRoleShouldBe(and);
   });
 
   test('Change own password', ({ given, when, then, and }) => {
@@ -102,7 +70,6 @@ defineFeature(feature, (test) => {
       oldPassword = 'old-password';
       createdUser = await createUser.execute({
         name: 'Jane Doe',
-        role: UserRole.USER,
         password: oldPassword,
       });
     });
@@ -135,7 +102,6 @@ defineFeature(feature, (test) => {
     and('a user exists with role USER', async () => {
       createdUser = await createUser.execute({
         name: 'Jane Doe',
-        role: UserRole.USER,
         password: 'initial-password',
       });
     });
@@ -156,16 +122,12 @@ defineFeature(feature, (test) => {
 
   test('Creating a user with a taken name is rejected', ({
     given,
-    and,
     when,
     then,
   }) => {
-    anAdministratorIsAuthenticated(given);
-
-    and('a user named "Jane Doe" already exists', async () => {
+    given('a user named "Jane Doe" already exists', async () => {
       createdUser = await createUser.execute({
         name: 'Jane Doe',
-        role: UserRole.USER,
         password: 'initial-password',
       });
     });
@@ -174,7 +136,6 @@ defineFeature(feature, (test) => {
       try {
         await createUser.execute({
           name: 'Jane Doe',
-          role: UserRole.USER,
           password: 'another-password',
         });
       } catch (error) {

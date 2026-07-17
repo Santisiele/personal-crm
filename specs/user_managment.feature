@@ -1,22 +1,13 @@
 Feature: User Management
 
-Scenario: Create a normal user
-Given an administrator is authenticated
-When creates a user with role USER
+Registration is open to anyone but never confers privilege: a self-registered
+user is always a plain USER. Elevated roles are reached only by an authorized
+grant (see role_assignment.feature), never at sign-up.
+
+Scenario: Registering a user creates a plain user
+When someone registers
 Then the user should be stored
 And the user role should be USER
-
-Scenario: Create an administrator user
-Given an administrator is authenticated
-When creates a user with role ADMIN
-Then the user should be stored
-And the user role should be ADMIN
-
-Scenario: Create a creator user
-Given an administrator is authenticated
-When creates a user with role CREATOR
-Then the user should be stored
-And the user role should be CREATOR
 
 Scenario: Change own password
 Given a user is authenticated
@@ -31,7 +22,6 @@ When changes the user's role to ADMIN
 Then the user role should be ADMIN
 
 Scenario: Creating a user with a taken name is rejected
-Given an administrator is authenticated
-And a user named "Jane Doe" already exists
+Given a user named "Jane Doe" already exists
 When creating another user named "Jane Doe"
 Then the creation is rejected as a conflict
