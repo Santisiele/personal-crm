@@ -57,6 +57,7 @@ web/src/
 - Vistas **mes** y **semana** (FullCalendar, locale ES, semana desde el lunes).
 - **Click en un día** → crear tarea con esa fecha. **Click en un evento** → editar. **Drag de un evento** → reprogramar (`PATCH /tasks/:id` con el nuevo `dueDate`; si falla, revierte).
 - Cada tarea se pinta con un **color determinístico por persona** (`hooks/userColors.ts`), estable entre sesiones. Los privilegiados tienen un toggle **dueño/asignado** y una **leyenda** nombre↔color (los nombres salen de `GET /users`).
+- **Reasignar al editar** (calendario o lista): el modal de tarea muestra un selector **"Reasignar a"** cuando el actor puede reasignar (el dueño, o un privilegiado que supera en rol al asignado actual — espeja `canReassign` de la API). Las opciones salen de `GET /users/assignable`, así que hasta un USER puede reasignar su propia tarea; al guardar, si el asignado cambió se dispara `PATCH /tasks/:id/assignee`.
 
 ## Tablero, actividad y bandeja
 
