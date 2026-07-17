@@ -25,7 +25,7 @@ Then the new password should be stored
 And the old password should no longer be valid
 
 Scenario: Promote a user to administrator
-Given an administrator is authenticated
+Given a creator is authenticated
 And a user exists with role USER
 When changes the user's role to ADMIN
 Then the user role should be ADMIN

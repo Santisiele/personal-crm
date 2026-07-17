@@ -1,6 +1,7 @@
 import { loadFeature, defineFeature, DefineStepFunction } from 'jest-cucumber';
 import { UserRole } from '@/users/domain/user-role';
 import { User } from '@/users/domain/user';
+import { Actor } from '@/shared/domain/actor';
 import { CreateUser } from '@/users/application/create-user.use-case';
 import { ChangePassword } from '@/users/application/change-password.use-case';
 import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
@@ -17,6 +18,7 @@ defineFeature(feature, (test) => {
   let changePassword: ChangePassword;
   let changeUserRole: ChangeUserRole;
   let createdUser: User;
+  let actor: Actor;
   let oldPassword: string;
   let conflictRejected: boolean;
 
@@ -31,9 +33,23 @@ defineFeature(feature, (test) => {
 
   const anAdministratorIsAuthenticated = (given: DefineStepFunction) => {
     given('an administrator is authenticated', () => {
-      // No authorization rule is exercised by these scenarios yet (there is no
+      // The creation scenarios exercise no authorization rule (there is no
       // rejection scenario), so the authenticated admin is just the acting
-      // context. Enforcement will be introduced when a scenario demands it.
+      // context. Enforcement is introduced where a scenario demands it.
+    });
+  };
+
+  const aCreatorIsAuthenticated = (given: DefineStepFunction) => {
+    given('a creator is authenticated', async () => {
+      // Role assignment is gated, so the acting principal must be a real stored
+      // user with the authority to grant roles (see role_assignment.feature).
+      const me = User.create({
+        name: 'Acting Creator',
+        role: UserRole.CREATOR,
+        passwordHash: 'hashed',
+      });
+      await users.save(me);
+      actor = { id: me.id!, role: UserRole.CREATOR };
     });
   };
 
@@ -114,7 +130,7 @@ defineFeature(feature, (test) => {
   });
 
   test('Promote a user to administrator', ({ given, and, when, then }) => {
-    anAdministratorIsAuthenticated(given);
+    aCreatorIsAuthenticated(given);
 
     and('a user exists with role USER', async () => {
       createdUser = await createUser.execute({
@@ -126,6 +142,7 @@ defineFeature(feature, (test) => {
 
     when("changes the user's role to ADMIN", async () => {
       await changeUserRole.execute({
+        actor,
         userId: createdUser.id!,
         role: UserRole.ADMIN,
       });

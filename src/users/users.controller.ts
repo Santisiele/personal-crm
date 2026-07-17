@@ -111,18 +111,19 @@ export class UsersController {
   @Patch(':id/role')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: "Change a user's role" })
+  @ApiOperation({ summary: "Change a user's role (CREATOR only, in practice)" })
   @ApiParam({ name: 'id', description: 'User id' })
   @ApiNoContentResponse({ description: 'Role changed.' })
   @ApiResponse({ status: 400, description: 'Validation failed.' })
   @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
-  @ApiResponse({ status: 403, description: 'Actor may not change roles.' })
+  @ApiResponse({ status: 403, description: 'Actor may not grant that role.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
   async changeRole(
     @Param('id') id: string,
     @Body() body: ChangeUserRoleDto,
+    @CurrentActor() actor: Actor,
   ): Promise<void> {
-    await this.changeUserRole.execute({ userId: id, role: body.role });
+    await this.changeUserRole.execute({ actor, userId: id, role: body.role });
   }
 
   @Delete(':id')
