@@ -37,10 +37,8 @@ const ROLE_COLORS: Record<UserRole, string> = {
   CREATOR: 'grape',
 };
 
-const ROLE_OPTIONS = (['USER', 'ADMIN', 'CREATOR'] as const).map((role) => ({
-  value: role,
-  label: ROLE_LABELS[role],
-}));
+const roleOptions = (roles: UserRole[]) =>
+  roles.map((role) => ({ value: role, label: ROLE_LABELS[role] }));
 
 export function UsersPage() {
   const { user } = useAuth();
@@ -50,10 +48,25 @@ export function UsersPage() {
   const createUser = useCreateUser();
   const [createOpened, createModal] = useDisclosure(false);
 
-  // Only the CREATOR can assign roles today (an ADMIN is confined to plain users
-  // and cannot grant above USER, which the API enforces). The control is shown
-  // accordingly so the UI never offers an action that would 403.
-  const canAssignRoles = user?.role === 'CREATOR';
+  const actorRole = user?.role;
+
+  // The roles this actor may assign to a target with the given current role,
+  // mirroring the API's canAssignRole. A CREATOR grants anything; an ADMIN moves
+  // targets between USER and ADMIN but cannot touch a CREATOR nor grant CREATOR;
+  // anyone else cannot assign roles. An empty list hides the picker for that row.
+  const assignableRoles = (targetRole: UserRole): UserRole[] => {
+    if (actorRole === 'CREATOR') {
+      return ['USER', 'ADMIN', 'CREATOR'];
+    }
+    if (actorRole === 'ADMIN') {
+      return targetRole === 'CREATOR' ? [] : ['USER', 'ADMIN'];
+    }
+    return [];
+  };
+
+  // Roles offered when creating a new user (a new account starts as USER, so the
+  // reachable set is what the actor may grant from USER).
+  const creatableRoles = assignableRoles('USER');
 
   const form = useForm({
     initialValues: { name: '', password: '', role: 'USER' as UserRole },
@@ -167,7 +180,7 @@ export function UsersPage() {
                       </Text>
                     </Table.Td>
                     <Table.Td>
-                      {canAssignRoles && !isSelf ? (
+                      {assignableRoles(u.role).length > 0 && !isSelf ? (
                         <Menu withinPortal position="bottom-start">
                           <Menu.Target>
                             <Badge
@@ -179,7 +192,7 @@ export function UsersPage() {
                             </Badge>
                           </Menu.Target>
                           <Menu.Dropdown>
-                            {ROLE_OPTIONS.map((opt) => (
+                            {roleOptions(assignableRoles(u.role)).map((opt) => (
                               <Menu.Item
                                 key={opt.value}
                                 disabled={opt.value === u.role}
@@ -236,19 +249,17 @@ export function UsersPage() {
               withAsterisk
               {...form.getInputProps('password')}
             />
-            {canAssignRoles ? (
+            {creatableRoles.length > 1 ? (
               <Select
                 label="Rol"
-                data={ROLE_OPTIONS}
+                data={roleOptions(creatableRoles)}
                 allowDeselect={false}
                 {...form.getInputProps('role')}
               />
             ) : (
-              // Only a CREATOR can grant a role; others create plain users, so
-              // the picker is hidden and the role stays USER.
+              // The actor can only create plain users, so the role stays USER.
               <Text size="sm" c="dimmed">
-                Se creará como <b>{ROLE_LABELS.USER}</b>. Solo un Creador puede
-                asignar otros roles.
+                Se creará como <b>{ROLE_LABELS.USER}</b>.
               </Text>
             )}
             <Button type="submit" loading={createUser.isPending}>
