@@ -27,3 +27,12 @@ export function RequirePrivileged() {
   }
   return <Outlet />;
 }
+
+/** Gates a route subtree behind the CREATOR role. */
+export function RequireCreator() {
+  const { user } = useAuth();
+  if (!user || user.role !== 'CREATOR') {
+    return <Navigate to="/" replace />;
+  }
+  return <Outlet />;
+}

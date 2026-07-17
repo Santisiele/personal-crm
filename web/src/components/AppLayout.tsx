@@ -14,10 +14,13 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
+  IconAddressBook,
+  IconBuilding,
   IconCalendar,
   IconChecklist,
   IconLayoutDashboard,
   IconLogout,
+  IconTags,
   IconUser,
   IconUsers,
 } from '@tabler/icons-react';
@@ -29,13 +32,22 @@ interface NavItem {
   label: string;
   icon: typeof IconCalendar;
   privileged?: boolean;
+  creatorOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Panel', icon: IconLayoutDashboard },
   { to: '/calendar', label: 'Calendario', icon: IconCalendar },
   { to: '/tasks', label: 'Tareas', icon: IconChecklist },
+  { to: '/contacts', label: 'Contactos', icon: IconAddressBook },
+  { to: '/companies', label: 'Empresas', icon: IconBuilding },
   { to: '/users', label: 'Usuarios', icon: IconUsers, privileged: true },
+  {
+    to: '/company-statuses',
+    label: 'Estados de empresa',
+    icon: IconTags,
+    creatorOnly: true,
+  },
 ];
 
 export function AppLayout() {
@@ -107,7 +119,11 @@ export function AppLayout() {
 
       <AppShell.Navbar p="md">
         <AppShell.Section grow component={ScrollArea}>
-          {NAV_ITEMS.filter((item) => !item.privileged || privileged).map(
+          {NAV_ITEMS.filter(
+            (item) =>
+              (!item.privileged || privileged) &&
+              (!item.creatorOnly || user?.role === 'CREATOR'),
+          ).map(
             (item) => (
               <NavLink
                 key={item.to}

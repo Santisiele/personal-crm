@@ -51,3 +51,63 @@ export interface Role {
   id: string;
   description: string;
 }
+
+export interface Contact {
+  id: string;
+  contactName: string;
+  email: string | null;
+  birth: string | null;
+}
+
+export interface CreateContactInput {
+  contactName: string;
+  email?: string | null;
+  birth?: string | null;
+}
+
+export type EditContactInput = Partial<CreateContactInput>;
+
+export interface Company {
+  id: string;
+  companyName: string;
+  ownerId: string;
+  cuit: string | null;
+  brand: string | null;
+  product: string | null;
+  origin: string | null;
+  status: string | null;
+}
+
+/** A contact as seen from a company's detail: the contact plus its link fields. */
+export interface LinkedContact {
+  id: string;
+  contactName: string;
+  email: string | null;
+  roleInCompany: string | null;
+  phone: string | null;
+}
+
+export interface CompanyWithContacts extends Company {
+  contacts: LinkedContact[];
+}
+
+export interface CreateCompanyInput {
+  companyName: string;
+  cuit?: string | null;
+  brand?: string | null;
+  product?: string | null;
+  origin?: string | null;
+}
+
+export type EditCompanyInput = Partial<CreateCompanyInput>;
+
+export interface LinkContactInput {
+  contactId: string;
+  roleInCompany?: string | null;
+  phone?: string | null;
+}
+
+export interface CompanyStatus {
+  id: string;
+  description: string;
+}
