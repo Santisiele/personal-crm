@@ -10,6 +10,7 @@ import { TaskAssignment } from '@/task-assignments/domain/task-assignment';
 import { TaskAssignmentNotFoundError } from '@/task-assignments/domain/task-assignment-not-found.error';
 import { InMemoryTaskAssignmentRepository } from '@/task-assignments/infrastructure/persistence/in-memory-task-assignment.repository';
 import { ViewAssignmentHistory } from '@/task-assignments/application/view-assignment-history.use-case';
+import { ListMyPendingAssignments } from '@/task-assignments/application/list-my-pending-assignments.use-case';
 import {
   AssignmentResponse,
   RespondToAssignment,
@@ -28,10 +29,12 @@ defineFeature(feature, (test) => {
   let assignments: InMemoryTaskAssignmentRepository;
   let viewHistory: ViewAssignmentHistory;
   let respond: RespondToAssignment;
+  let listPending: ListMyPendingAssignments;
   let actor: Actor;
   let task: Task;
   let assignment: TaskAssignment;
   let history: TaskAssignment[];
+  let pending: TaskAssignment[];
   let denied: boolean;
   let taskNotFound: boolean;
   let assignmentNotFound: boolean;
@@ -41,6 +44,7 @@ defineFeature(feature, (test) => {
     assignments = new InMemoryTaskAssignmentRepository();
     viewHistory = new ViewAssignmentHistory(tasks, assignments);
     respond = new RespondToAssignment(assignments);
+    listPending = new ListMyPendingAssignments(assignments);
     denied = false;
     taskNotFound = false;
     assignmentNotFound = false;
@@ -252,6 +256,45 @@ defineFeature(feature, (test) => {
     );
     then('the assignment is reported as not found', () => {
       expect(assignmentNotFound).toBe(true);
+    });
+  });
+
+  test('A user lists their pending assignments', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    authenticatedAsUser(given);
+    and('the user has a pending assignment on a task', async () => {
+      assignment = await seedAssignment(
+        actor.id,
+        new Date('2026-03-01T00:00:00Z'),
+      );
+    });
+    and(
+      'the user has an assignment they already accepted on another task',
+      async () => {
+        const accepted = await seedAssignment(
+          actor.id,
+          new Date('2026-02-01T00:00:00Z'),
+        );
+        accepted.accept();
+        await assignments.save(accepted);
+      },
+    );
+    and('another user has a pending assignment on a task', async () => {
+      await seedAssignment(ANOTHER_USER_ID, new Date('2026-04-01T00:00:00Z'));
+    });
+    when('the user lists their pending assignments', async () => {
+      pending = await listPending.execute({ actor });
+    });
+    then('only their pending assignment is returned', () => {
+      // Not the accepted one (wrong status) nor the other user's (wrong assignee).
+      expect(pending).toHaveLength(1);
+      expect(pending[0].id).toBe(assignment.id);
+      expect(pending[0].assigneeId).toBe(USER_ID);
+      expect(pending[0].status).toBe(AssignmentStatus.PENDING);
     });
   });
 });

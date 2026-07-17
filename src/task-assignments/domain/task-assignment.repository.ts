@@ -15,6 +15,11 @@ export interface TaskAssignmentRepository {
    * `assignedAt` then id, descending).
    */
   findByTaskId(taskId: string): Promise<TaskAssignment[]>;
+  /**
+   * The pending assignments addressed to a given assignee, ordered most-recent
+   * first — the inbox of assignments awaiting their accept/reject response.
+   */
+  findPendingByAssignee(assigneeId: string): Promise<TaskAssignment[]>;
   /** Returns the assignment, or null if it does not exist. */
   findById(id: TaskAssignmentId): Promise<TaskAssignment | null>;
 }

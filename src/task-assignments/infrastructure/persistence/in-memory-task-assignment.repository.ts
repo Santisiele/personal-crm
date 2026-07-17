@@ -1,3 +1,4 @@
+import { AssignmentStatus } from '@/task-assignments/domain/assignment-status';
 import {
   TaskAssignment,
   TaskAssignmentId,
@@ -31,6 +32,20 @@ export class InMemoryTaskAssignmentRepository implements TaskAssignmentRepositor
         return byDate !== 0 ? byDate : Number(b.id) - Number(a.id);
       });
     return Promise.resolve(history);
+  }
+
+  findPendingByAssignee(assigneeId: string): Promise<TaskAssignment[]> {
+    const pending = [...this.assignments.values()]
+      .filter(
+        (assignment) =>
+          assignment.assigneeId === assigneeId &&
+          assignment.status === AssignmentStatus.PENDING,
+      )
+      .sort((a, b) => {
+        const byDate = b.assignedAt.getTime() - a.assignedAt.getTime();
+        return byDate !== 0 ? byDate : Number(b.id) - Number(a.id);
+      });
+    return Promise.resolve(pending);
   }
 
   findById(id: TaskAssignmentId): Promise<TaskAssignment | null> {

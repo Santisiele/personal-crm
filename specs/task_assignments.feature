@@ -40,3 +40,11 @@ Scenario: Accepting an assignment that does not exist
 Given a user is authenticated
 When the user attempts to accept a missing assignment
 Then the assignment is reported as not found
+
+Scenario: A user lists their pending assignments
+Given a user is authenticated
+And the user has a pending assignment on a task
+And the user has an assignment they already accepted on another task
+And another user has a pending assignment on a task
+When the user lists their pending assignments
+Then only their pending assignment is returned

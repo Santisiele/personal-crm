@@ -6,12 +6,14 @@ import {
   TaskRepository,
 } from '@/tasks/domain/task.repository';
 import { TaskAssignmentsController } from '@/task-assignments/task-assignments.controller';
+import { MyAssignmentsController } from '@/task-assignments/my-assignments.controller';
 import {
   TASK_ASSIGNMENT_REPOSITORY,
   TaskAssignmentRepository,
 } from '@/task-assignments/domain/task-assignment.repository';
 import { PrismaTaskAssignmentRepository } from '@/task-assignments/infrastructure/persistence/prisma-task-assignment.repository';
 import { ViewAssignmentHistory } from '@/task-assignments/application/view-assignment-history.use-case';
+import { ListMyPendingAssignments } from '@/task-assignments/application/list-my-pending-assignments.use-case';
 import { RespondToAssignment } from '@/task-assignments/application/respond-to-assignment.use-case';
 
 /**
@@ -44,12 +46,19 @@ import { RespondToAssignment } from '@/task-assignments/application/respond-to-a
         new RespondToAssignment(assignments),
       inject: [TASK_ASSIGNMENT_REPOSITORY],
     },
+    {
+      provide: ListMyPendingAssignments,
+      useFactory: (assignments: TaskAssignmentRepository) =>
+        new ListMyPendingAssignments(assignments),
+      inject: [TASK_ASSIGNMENT_REPOSITORY],
+    },
   ],
-  controllers: [TaskAssignmentsController],
+  controllers: [TaskAssignmentsController, MyAssignmentsController],
   exports: [
     TASK_ASSIGNMENT_REPOSITORY,
     ViewAssignmentHistory,
     RespondToAssignment,
+    ListMyPendingAssignments,
   ],
 })
 export class TaskAssignmentsModule {}

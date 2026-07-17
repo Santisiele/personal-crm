@@ -70,6 +70,27 @@ export class PrismaTaskAssignmentRepository implements TaskAssignmentRepository 
     );
   }
 
+  async findPendingByAssignee(assigneeId: string): Promise<TaskAssignment[]> {
+    const rows = await this.prisma.task_assignment.findMany({
+      where: {
+        user_id: BigInt(assigneeId),
+        assignment_status: { description: AssignmentStatus.PENDING },
+      },
+      include: { assignment_status: true },
+      orderBy: [{ assigned_at: 'desc' }, { id: 'desc' }],
+    });
+    return rows.map((row) =>
+      TaskAssignment.rehydrate({
+        id: row.id.toString(),
+        taskId: row.task_id.toString(),
+        assigneeId: row.user_id.toString(),
+        assignedById: row.assigned_by.toString(),
+        status: this.toStatus(row.assignment_status.description),
+        assignedAt: row.assigned_at,
+      }),
+    );
+  }
+
   async findById(id: TaskAssignmentId): Promise<TaskAssignment | null> {
     const row = await this.prisma.task_assignment.findUnique({
       where: { id: BigInt(id) },
