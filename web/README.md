@@ -49,6 +49,7 @@ web/src/
 - **USER**: ve/gestiona sus tareas (dueño o asignado); su calendario muestra solo las suyas.
 - **ADMIN / CREATOR** (privilegiados): ven **todas** las tareas del equipo en el calendario, coloreadas por persona, y acceden a la sección **Usuarios**.
 - **Asignación de roles**: la UI solo la ofrece al **CREATOR** (la API confina al ADMIN a usuarios comunes y le impide otorgar por encima de `USER`, así que hoy no puede cambiar roles). La UI nunca ofrece una acción que la API rechazaría con 403.
+- **Registro**: `POST /users` crea siempre un `USER` (la API rechaza un `role` en el alta), así que el front no manda rol al registrarse. Crear un usuario con rol desde la pantalla **Usuarios** (solo CREATOR) es un alta como `USER` seguida de un `PATCH /users/:id/role`.
 
 ## Calendario
 
