@@ -17,6 +17,13 @@ And two users exist
 When the user lists the users
 Then listing is denied
 
+Scenario: A plain user can list the assignable users
+Given a plain user is authenticated
+And two users exist
+When the user lists the assignable users
+Then every assignable entry is returned
+And no assignable entry exposes a role or a password hash
+
 Scenario: An administrator views any user
 Given an administrator is authenticated
 And another user exists

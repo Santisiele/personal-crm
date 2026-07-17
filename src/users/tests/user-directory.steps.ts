@@ -3,6 +3,10 @@ import { UserRole } from '@/users/domain/user-role';
 import { User } from '@/users/domain/user';
 import { Actor } from '@/shared/domain/actor';
 import { ListUsers } from '@/users/application/list-users.use-case';
+import {
+  AssignableUser,
+  ListAssignableUsers,
+} from '@/users/application/list-assignable-users.use-case';
 import { ViewUser } from '@/users/application/view-user.use-case';
 import { UserView } from '@/users/application/user-view';
 import { UserAccessDeniedError } from '@/users/domain/user-access-denied.error';
@@ -14,10 +18,12 @@ const feature = loadFeature('specs/user_directory.feature', { errors: false });
 defineFeature(feature, (test) => {
   let users: InMemoryUserRepository;
   let listUsers: ListUsers;
+  let listAssignableUsers: ListAssignableUsers;
   let viewUser: ViewUser;
   let actor: Actor;
   let otherUser: User;
   let listed: UserView[];
+  let assignable: AssignableUser[];
   let viewed: UserView;
   let denied: boolean;
   let notFound: boolean;
@@ -25,6 +31,7 @@ defineFeature(feature, (test) => {
   beforeEach(() => {
     users = new InMemoryUserRepository();
     listUsers = new ListUsers(users);
+    listAssignableUsers = new ListAssignableUsers(users);
     viewUser = new ViewUser(users);
     denied = false;
     notFound = false;
@@ -125,6 +132,31 @@ defineFeature(feature, (test) => {
     });
 
     listingIsDenied(then);
+  });
+
+  test('A plain user can list the assignable users', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    aPlainUserIsAuthenticated(given);
+    twoUsersExist(and);
+
+    when('the user lists the assignable users', async () => {
+      assignable = await listAssignableUsers.execute();
+    });
+
+    then('every assignable entry is returned', () => {
+      // The acting user plus the two created users.
+      expect(assignable).toHaveLength(3);
+    });
+
+    and('no assignable entry exposes a role or a password hash', () => {
+      for (const entry of assignable) {
+        expect(Object.keys(entry).sort()).toEqual(['id', 'name']);
+      }
+    });
   });
 
   test('An administrator views any user', ({ given, and, when, then }) => {

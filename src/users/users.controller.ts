@@ -27,6 +27,7 @@ import { ChangePassword } from '@/users/application/change-password.use-case';
 import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
 import { DeactivateUser } from '@/users/application/deactivate-user.use-case';
 import { ListUsers } from '@/users/application/list-users.use-case';
+import { ListAssignableUsers } from '@/users/application/list-assignable-users.use-case';
 import { ViewUser } from '@/users/application/view-user.use-case';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { ChangePasswordDto } from '@/users/dto/change-password.dto';
@@ -41,6 +42,7 @@ export class UsersController {
     private readonly changeUserRole: ChangeUserRole,
     private readonly deactivateUser: DeactivateUser,
     private readonly listUsers: ListUsers,
+    private readonly listAssignableUsers: ListAssignableUsers,
     private readonly viewUser: ViewUser,
   ) {}
 
@@ -83,6 +85,20 @@ export class UsersController {
   })
   async findAll(@CurrentActor() actor: Actor) {
     return this.listUsers.execute({ actor });
+  }
+
+  @Get('assignable')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'List users a task may be assigned to (id + name only)',
+  })
+  @ApiOkResponse({
+    description:
+      'The assignable directory (id + name) for any authenticated user.',
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  async assignable() {
+    return this.listAssignableUsers.execute();
   }
 
   @Get(':id')

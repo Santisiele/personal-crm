@@ -20,6 +20,7 @@ import { ChangePassword } from '@/users/application/change-password.use-case';
 import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
 import { DeactivateUser } from '@/users/application/deactivate-user.use-case';
 import { ListUsers } from '@/users/application/list-users.use-case';
+import { ListAssignableUsers } from '@/users/application/list-assignable-users.use-case';
 import { ViewUser } from '@/users/application/view-user.use-case';
 import { CreateRole } from '@/users/application/create-role.use-case';
 import { ListRoles } from '@/users/application/list-roles.use-case';
@@ -73,6 +74,11 @@ import { ListRoles } from '@/users/application/list-roles.use-case';
     {
       provide: ListUsers,
       useFactory: (users: UserRepository) => new ListUsers(users),
+      inject: [USER_REPOSITORY],
+    },
+    {
+      provide: ListAssignableUsers,
+      useFactory: (users: UserRepository) => new ListAssignableUsers(users),
       inject: [USER_REPOSITORY],
     },
     {
