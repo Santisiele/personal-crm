@@ -61,8 +61,9 @@ web/src/
 ## Tablero, actividad y bandeja
 
 - **Tablero** (`/board`): las tareas agrupadas en columnas Pendiente / En progreso / Completada, coloreadas por responsable. **Drag & drop nativo** (HTML5) entre columnas cambia el estado (`PATCH /tasks/:id/status`).
-- **Actividad de tarea**: un drawer por tarea (solo dueño o privilegiado, que es lo que autoriza la API) con el log de actividad y un formulario para registrar una llamada/reunión/email/nota (`GET`/`POST /tasks/:id/activities`).
+- **Actividad de tarea**: un drawer por tarea (solo dueño o privilegiado, que es lo que autoriza la API) con el log de actividad (con su detalle y autor), un formulario para registrar llamada/reunión/email/nota (`GET`/`POST /tasks/:id/activities`), y el **historial de asignaciones** de la tarea (quién, cuándo, y el estado aceptada/rechazada, vía `GET /tasks/:id/assignments`).
 - **Bandeja** (`/inbox`): las asignaciones pendientes del actor con aceptar/rechazar (`GET /me/assignments/pending` + los endpoints accept/reject). Los títulos se resuelven del listado de tareas y hay un badge de conteo en la nav.
+- **Actividad del equipo** (`/activity`, **solo ADMIN/CREATOR**): el feed global de toda la actividad (`GET /activities`), cada entrada con su tarea, autor, fecha y detalle.
 
 ## Contactos y empresas
 

@@ -125,6 +125,8 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 - **Endpoints** (`TaskActivitiesController`):
   - `POST /tasks/:taskId/activities` — loguear una actividad (`LogTaskActivityDto`).
   - `GET /tasks/:taskId/activities` — leer el log de la tarea, most-recent first (autorizado por la política de la tarea: dueño o privilegiado; 403 si no, 404 si la tarea no existe).
+  - `GET /activities` (`ActivityFeedController`, **solo ADMIN/CREATOR**) — **feed global**: toda la actividad de todas las tareas en un solo lugar, most-recent first. El log por-tarea sigue siendo owner-gated; este cruza tareas a propósito, así que lo autoriza `TaskAccessPolicy.canViewAllActivity` (privilegiado). Apoyado en `TaskActivityRepository.findAll` y el caso de uso `ViewAllActivity`.
+  - La forma HTTP de una actividad ahora incluye `authorId` y el detalle libre (`description`/`nextAction`/`nextActionDate`), vía un `presentActivity` compartido por el log por-tarea y el feed — así se ve "quién hizo qué" sin un segundo request.
 - `TaskActivitiesModule` importa `TasksModule` (que ahora exporta `TASK_REPOSITORY`).
 
 ### Contexto `task-assignments` (`src/task-assignments`)
