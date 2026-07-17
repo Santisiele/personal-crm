@@ -148,4 +148,49 @@ describe('Company statuses (e2e)', () => {
         .expect(403);
     });
   });
+
+  describe('deleting a company status', () => {
+    const createStatus = async (description: string): Promise<string> => {
+      const res = await request(app.getHttpServer())
+        .post('/company-statuses')
+        .set(bearer(creatorToken))
+        .send({ description })
+        .expect(201);
+      const id = (res.body as { id: string }).id;
+      createdStatusIds.push(BigInt(id));
+      return id;
+    };
+
+    it('lets a creator delete a status; it leaves the catalogue (204)', async () => {
+      const id = await createStatus(`E2E Status Del ${RUN}`);
+
+      await request(app.getHttpServer())
+        .delete(`/company-statuses/${id}`)
+        .set(bearer(creatorToken))
+        .expect(204);
+
+      const list = await request(app.getHttpServer())
+        .get('/company-statuses')
+        .set(bearer(creatorToken))
+        .expect(200);
+      const body = list.body as Array<{ id: string }>;
+      expect(body.some((s) => s.id === id)).toBe(false);
+    });
+
+    it('forbids a normal user from deleting a status (403)', async () => {
+      const id = await createStatus(`E2E Status Del Denied ${RUN}`);
+
+      await request(app.getHttpServer())
+        .delete(`/company-statuses/${id}`)
+        .set(bearer(userToken))
+        .expect(403);
+    });
+
+    it('returns 404 deleting a status that does not exist', async () => {
+      await request(app.getHttpServer())
+        .delete('/company-statuses/999999999999999')
+        .set(bearer(creatorToken))
+        .expect(404);
+    });
+  });
 });
