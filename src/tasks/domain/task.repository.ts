@@ -17,6 +17,11 @@ export interface TaskRepository {
   save(task: Task): Promise<void>;
   /** Returns the task, or null if it does not exist or has been archived. */
   findById(id: TaskId): Promise<Task | null>;
+  /**
+   * Persists a content edit (title, description, due date) for an existing task.
+   * Distinct from `save`, whose id path is reserved for reassignment.
+   */
+  update(task: Task): Promise<void>;
   /** Persists a status transition for an existing task. */
   updateStatus(id: TaskId, status: TaskStatus): Promise<void>;
   /**

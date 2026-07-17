@@ -21,9 +21,9 @@ export class Task {
     private _id: TaskId | null,
     public readonly ownerId: string,
     private _assigneeId: string | null,
-    public readonly title: string,
-    public readonly description: string,
-    public readonly dueDate: string | null,
+    private _title: string,
+    private _description: string,
+    private _dueDate: string | null,
     public readonly companyId: string | null,
     private _status: TaskStatus,
   ) {}
@@ -80,6 +80,18 @@ export class Task {
     return this._assigneeId;
   }
 
+  get title(): string {
+    return this._title;
+  }
+
+  get description(): string {
+    return this._description;
+  }
+
+  get dueDate(): string | null {
+    return this._dueDate;
+  }
+
   get status(): TaskStatus {
     return this._status;
   }
@@ -94,6 +106,28 @@ export class Task {
 
   reassignTo(userId: string): void {
     this._assigneeId = userId;
+  }
+
+  /**
+   * Applies a partial content edit. Only the fields present in `changes` are
+   * touched (an omitted key leaves that attribute as-is), mirroring how the
+   * Contact aggregate edits itself. Passing `dueDate: null` clears the due date;
+   * omitting `dueDate` keeps the current one.
+   */
+  edit(changes: {
+    title?: string;
+    description?: string;
+    dueDate?: string | null;
+  }): void {
+    if (changes.title !== undefined) {
+      this._title = changes.title;
+    }
+    if (changes.description !== undefined) {
+      this._description = changes.description;
+    }
+    if (changes.dueDate !== undefined) {
+      this._dueDate = changes.dueDate;
+    }
   }
 
   changeStatus(status: TaskStatus): void {

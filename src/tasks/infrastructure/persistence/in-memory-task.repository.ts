@@ -30,6 +30,15 @@ export class InMemoryTaskRepository implements TaskRepository {
     return Promise.resolve(this.tasks.get(id) ?? null);
   }
 
+  update(task: Task): Promise<void> {
+    // The aggregate is edited in place before this call; the map already holds
+    // the same instance, so persisting the edit is just re-storing it.
+    if (task.id !== null && !this.archived.has(task.id)) {
+      this.tasks.set(task.id, task);
+    }
+    return Promise.resolve();
+  }
+
   updateStatus(id: TaskId, status: TaskStatus): Promise<void> {
     const task = this.tasks.get(id);
     if (task && !this.archived.has(id)) {

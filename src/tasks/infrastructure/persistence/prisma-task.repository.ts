@@ -61,6 +61,20 @@ export class PrismaTaskRepository implements TaskRepository {
     return this.rehydrate(row);
   }
 
+  async update(task: Task): Promise<void> {
+    if (task.id === null) {
+      throw new Error('Cannot update a task that has no identity');
+    }
+    await this.prisma.task.update({
+      where: { id: BigInt(task.id) },
+      data: {
+        title: task.title,
+        description: task.description,
+        due_date: task.dueDate ? new Date(task.dueDate) : null,
+      },
+    });
+  }
+
   async updateStatus(id: TaskId, status: TaskStatus): Promise<void> {
     await this.prisma.task.update({
       where: { id: BigInt(id) },

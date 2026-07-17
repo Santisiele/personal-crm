@@ -28,8 +28,10 @@ import { CreateTask } from '@/tasks/application/create-task.use-case';
 import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
 import { ArchiveTask } from '@/tasks/application/archive-task.use-case';
 import { ChangeTaskStatus } from '@/tasks/application/change-task-status.use-case';
+import { EditTask } from '@/tasks/application/edit-task.use-case';
 import { ListTasks } from '@/tasks/application/list-tasks.use-case';
 import { CreateTaskDto } from '@/tasks/dto/create-task.dto';
+import { EditTaskDto } from '@/tasks/dto/edit-task.dto';
 import { ListTasksQueryDto } from '@/tasks/dto/list-tasks-query.dto';
 import { ReassignTaskDto } from '@/tasks/dto/reassign-task.dto';
 import { ArchiveTaskDto } from '@/tasks/dto/archive-task.dto';
@@ -45,6 +47,7 @@ export class TasksController {
     private readonly reassignTask: ReassignTask,
     private readonly archiveTask: ArchiveTask,
     private readonly changeTaskStatus: ChangeTaskStatus,
+    private readonly editTask: EditTask,
     private readonly listTasks: ListTasks,
   ) {}
 
@@ -106,6 +109,33 @@ export class TasksController {
   @ApiResponse({ status: 404, description: 'Task not found or archived.' })
   async findOne(@Param('id') id: string, @CurrentActor() actor: Actor) {
     const task = await this.viewTask.execute({ actor, taskId: id });
+    return this.present(task);
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary:
+      'Edit a task (title, description, due date; owner, assignee or privileged)',
+  })
+  @ApiParam({ name: 'id', description: 'Task id.' })
+  @ApiOkResponse({ description: 'Updated task.' })
+  @ApiResponse({ status: 400, description: 'Invalid payload.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({ status: 403, description: 'Not allowed to edit this task.' })
+  @ApiResponse({ status: 404, description: 'Task not found or archived.' })
+  async edit(
+    @Param('id') id: string,
+    @Body() body: EditTaskDto,
+    @CurrentActor() actor: Actor,
+  ) {
+    const task = await this.editTask.execute({
+      actor,
+      taskId: id,
+      title: body.title,
+      description: body.description,
+      // Undefined leaves the due date unchanged; null clears it.
+      dueDate: body.dueDate,
+    });
     return this.present(task);
   }
 
@@ -185,6 +215,8 @@ export class TasksController {
       id: task.id,
       ownerId: task.ownerId,
       assigneeId: task.assigneeId,
+      title: task.title,
+      description: task.description,
       dueDate: task.dueDate,
       companyId: task.companyId,
       status: task.status,

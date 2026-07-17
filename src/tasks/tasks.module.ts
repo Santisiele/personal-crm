@@ -11,6 +11,7 @@ import { ViewTask } from '@/tasks/application/view-task.use-case';
 import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
 import { ArchiveTask } from '@/tasks/application/archive-task.use-case';
 import { ChangeTaskStatus } from '@/tasks/application/change-task-status.use-case';
+import { EditTask } from '@/tasks/application/edit-task.use-case';
 import { ListTasks } from '@/tasks/application/list-tasks.use-case';
 
 /**
@@ -51,6 +52,11 @@ import { ListTasks } from '@/tasks/application/list-tasks.use-case';
       inject: [TASK_REPOSITORY],
     },
     {
+      provide: EditTask,
+      useFactory: (tasks: TaskRepository) => new EditTask(tasks),
+      inject: [TASK_REPOSITORY],
+    },
+    {
       provide: ListTasks,
       useFactory: (tasks: TaskRepository) => new ListTasks(tasks),
       inject: [TASK_REPOSITORY],
@@ -64,6 +70,7 @@ import { ListTasks } from '@/tasks/application/list-tasks.use-case';
     ReassignTask,
     ArchiveTask,
     ChangeTaskStatus,
+    EditTask,
     ListTasks,
   ],
 })

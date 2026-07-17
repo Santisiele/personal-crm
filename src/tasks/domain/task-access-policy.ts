@@ -47,6 +47,20 @@ export class TaskAccessPolicy {
   }
 
   /**
+   * The owner, the current assignee, or a privileged actor may edit a task's
+   * content (title, description, due date). The assignee is included so they can
+   * reschedule work assigned to them — e.g. dragging it on a calendar — matching
+   * who may move it through its status flow.
+   */
+  canEdit(actor: Actor, task: Task): boolean {
+    return (
+      this.isPrivileged(actor) ||
+      this.owns(actor, task) ||
+      this.isAssignee(actor, task)
+    );
+  }
+
+  /**
    * Anyone may create a task assigned to themselves; only privileged actors may
    * assign it to someone else or leave it unassigned (assigneeId === null).
    */
