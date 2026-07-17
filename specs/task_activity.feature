@@ -29,3 +29,14 @@ Scenario: Viewing the activity log of a task that does not exist
 Given a user is authenticated
 When the user views the activity log of a missing task
 Then the task is reported as not found
+
+Scenario: A privileged actor views all activity across every task
+Given an administrator is authenticated
+And there are activities logged on several tasks
+When the administrator views all activity
+Then every activity is returned most-recent first
+
+Scenario: A plain user cannot view all activity
+Given a user is authenticated
+When the user attempts to view all activity
+Then viewing the activity log is denied

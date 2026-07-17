@@ -13,6 +13,15 @@ export class TaskAccessPolicy {
     return this.isPrivileged(actor) || this.owns(actor, task);
   }
 
+  /**
+   * Whether the actor may read the global activity feed (every task's activity in
+   * one place). Reserved for privileged actors (ADMIN, CREATOR): a plain user has
+   * no business seeing other people's task activity in bulk.
+   */
+  canViewAllActivity(actor: Actor): boolean {
+    return this.isPrivileged(actor);
+  }
+
   canReassign(actor: Actor, task: Task): boolean {
     return this.owns(actor, task);
   }

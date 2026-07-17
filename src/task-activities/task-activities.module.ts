@@ -6,6 +6,7 @@ import {
   TaskRepository,
 } from '@/tasks/domain/task.repository';
 import { TaskActivitiesController } from '@/task-activities/task-activities.controller';
+import { ActivityFeedController } from '@/task-activities/activity-feed.controller';
 import {
   TASK_ACTIVITY_REPOSITORY,
   TaskActivityRepository,
@@ -13,6 +14,7 @@ import {
 import { PrismaTaskActivityRepository } from '@/task-activities/infrastructure/persistence/prisma-task-activity.repository';
 import { LogTaskActivity } from '@/task-activities/application/log-task-activity.use-case';
 import { ViewActivityLog } from '@/task-activities/application/view-activity-log.use-case';
+import { ViewAllActivity } from '@/task-activities/application/view-all-activity.use-case';
 
 /**
  * Composition root for the task-activities context. Binds the
@@ -42,8 +44,14 @@ import { ViewActivityLog } from '@/task-activities/application/view-activity-log
         new ViewActivityLog(tasks, activities),
       inject: [TASK_REPOSITORY, TASK_ACTIVITY_REPOSITORY],
     },
+    {
+      provide: ViewAllActivity,
+      useFactory: (activities: TaskActivityRepository) =>
+        new ViewAllActivity(activities),
+      inject: [TASK_ACTIVITY_REPOSITORY],
+    },
   ],
-  controllers: [TaskActivitiesController],
-  exports: [LogTaskActivity, ViewActivityLog],
+  controllers: [TaskActivitiesController, ActivityFeedController],
+  exports: [LogTaskActivity, ViewActivityLog, ViewAllActivity],
 })
 export class TaskActivitiesModule {}

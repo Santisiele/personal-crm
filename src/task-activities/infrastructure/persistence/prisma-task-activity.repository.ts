@@ -51,21 +51,41 @@ export class PrismaTaskActivityRepository implements TaskActivityRepository {
       // assignments adapter orders a task's history.
       orderBy: [{ activity_date: 'desc' }, { id: 'desc' }],
     });
-    return rows.map((row) =>
-      TaskActivity.rehydrate({
-        id: row.id.toString(),
-        taskId: row.task_id.toString(),
-        authorId: row.user_id.toString(),
-        actionType: row.action_type.description,
-        status: row.activity_status.description,
-        activityDate: toIsoDate(row.activity_date),
-        description: row.description,
-        nextAction: row.next_action,
-        nextActionDate: row.next_action_date
-          ? toIsoDate(row.next_action_date)
-          : null,
-      }),
-    );
+    return rows.map((row) => this.rehydrate(row));
+  }
+
+  async findAll(): Promise<TaskActivity[]> {
+    const rows = await this.prisma.task_activity.findMany({
+      include: { activity_status: true, action_type: true },
+      orderBy: [{ activity_date: 'desc' }, { id: 'desc' }],
+    });
+    return rows.map((row) => this.rehydrate(row));
+  }
+
+  private rehydrate(row: {
+    id: bigint;
+    task_id: bigint;
+    user_id: bigint;
+    action_type: { description: string };
+    activity_status: { description: string };
+    activity_date: Date;
+    description: string | null;
+    next_action: string | null;
+    next_action_date: Date | null;
+  }): TaskActivity {
+    return TaskActivity.rehydrate({
+      id: row.id.toString(),
+      taskId: row.task_id.toString(),
+      authorId: row.user_id.toString(),
+      actionType: row.action_type.description,
+      status: row.activity_status.description,
+      activityDate: toIsoDate(row.activity_date),
+      description: row.description,
+      nextAction: row.next_action,
+      nextActionDate: row.next_action_date
+        ? toIsoDate(row.next_action_date)
+        : null,
+    });
   }
 
   // The aggregate does not model activity statuses/types; they are looked up by

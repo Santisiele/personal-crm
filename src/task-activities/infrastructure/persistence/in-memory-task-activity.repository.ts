@@ -1,6 +1,12 @@
 import { TaskActivity } from '@/task-activities/domain/task-activity';
 import { TaskActivityRepository } from '@/task-activities/domain/task-activity.repository';
 
+/** Most-recent first: by activityDate then id (numeric), descending. */
+function mostRecentFirst(a: TaskActivity, b: TaskActivity): number {
+  const byDate = b.activityDate.localeCompare(a.activityDate);
+  return byDate !== 0 ? byDate : Number(b.id) - Number(a.id);
+}
+
 /**
  * In-memory driven adapter for task activities. Used in acceptance/unit tests
  * and local development. Owns identity for new activities via a simple counter,
@@ -22,12 +28,12 @@ export class InMemoryTaskActivityRepository implements TaskActivityRepository {
   findByTaskId(taskId: string): Promise<TaskActivity[]> {
     const log = this.activities
       .filter((activity) => activity.taskId === taskId)
-      // Most-recent first: by activityDate then id (numeric), descending.
-      .sort((a, b) => {
-        const byDate = b.activityDate.localeCompare(a.activityDate);
-        return byDate !== 0 ? byDate : Number(b.id) - Number(a.id);
-      });
+      .sort(mostRecentFirst);
     return Promise.resolve(log);
+  }
+
+  findAll(): Promise<TaskActivity[]> {
+    return Promise.resolve([...this.activities].sort(mostRecentFirst));
   }
 
   /** Test/inspection helper: all activities saved so far. */

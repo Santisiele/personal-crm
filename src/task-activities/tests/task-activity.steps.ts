@@ -7,6 +7,7 @@ import { AccessDeniedError } from '@/tasks/domain/access-denied.error';
 import { TaskNotFoundError } from '@/tasks/domain/task-not-found.error';
 import { LogTaskActivity } from '@/task-activities/application/log-task-activity.use-case';
 import { ViewActivityLog } from '@/task-activities/application/view-activity-log.use-case';
+import { ViewAllActivity } from '@/task-activities/application/view-all-activity.use-case';
 import { TaskActivity } from '@/task-activities/domain/task-activity';
 import { InMemoryTaskActivityRepository } from '@/task-activities/infrastructure/persistence/in-memory-task-activity.repository';
 
@@ -24,6 +25,7 @@ defineFeature(feature, (test) => {
   let activities: InMemoryTaskActivityRepository;
   let logTaskActivity: LogTaskActivity;
   let viewActivityLog: ViewActivityLog;
+  let viewAllActivity: ViewAllActivity;
   let actor: Actor;
   let task: Task;
   let log: TaskActivity[];
@@ -36,6 +38,7 @@ defineFeature(feature, (test) => {
     activities = new InMemoryTaskActivityRepository();
     logTaskActivity = new LogTaskActivity(tasks, activities);
     viewActivityLog = new ViewActivityLog(tasks, activities);
+    viewAllActivity = new ViewAllActivity(activities);
     stored = false;
     denied = false;
     taskNotFound = false;
@@ -44,6 +47,12 @@ defineFeature(feature, (test) => {
   const authenticatedAsUser = (given: DefineStepFunction): void => {
     given('a user is authenticated', () => {
       actor = { id: USER_ID, role: UserRole.USER };
+    });
+  };
+
+  const authenticatedAsAdmin = (given: DefineStepFunction): void => {
+    given('an administrator is authenticated', () => {
+      actor = { id: 'admin-1', role: UserRole.ADMIN };
     });
   };
 
@@ -62,9 +71,16 @@ defineFeature(feature, (test) => {
   };
 
   const seedActivity = async (activityDate: string): Promise<void> => {
+    await seedActivityOnTask(TASK_ID, activityDate);
+  };
+
+  const seedActivityOnTask = async (
+    taskId: string,
+    activityDate: string,
+  ): Promise<void> => {
     await activities.save(
       TaskActivity.create({
-        taskId: TASK_ID,
+        taskId,
         authorId: actor.id,
         actionType: ACTION_TYPE,
         status: STATUS,
@@ -191,6 +207,46 @@ defineFeature(feature, (test) => {
     viewsLog(when, 'the user views the activity log of a missing task');
     then('the task is reported as not found', () => {
       expect(taskNotFound).toBe(true);
+    });
+  });
+
+  test('A privileged actor views all activity across every task', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    authenticatedAsAdmin(given);
+    and('there are activities logged on several tasks', async () => {
+      await seedActivityOnTask('task-1', '2026-01-01');
+      await seedActivityOnTask('task-2', '2026-02-01');
+    });
+    when('the administrator views all activity', async () => {
+      log = await viewAllActivity.execute({ actor });
+    });
+    then('every activity is returned most-recent first', () => {
+      expect(log).toHaveLength(2);
+      expect(log[0].taskId).toBe('task-2');
+      expect(log[0].activityDate).toBe('2026-02-01');
+      expect(log[1].taskId).toBe('task-1');
+    });
+  });
+
+  test('A plain user cannot view all activity', ({ given, when, then }) => {
+    authenticatedAsUser(given);
+    when('the user attempts to view all activity', async () => {
+      try {
+        log = await viewAllActivity.execute({ actor });
+      } catch (error) {
+        if (error instanceof AccessDeniedError) {
+          denied = true;
+        } else {
+          throw error;
+        }
+      }
+    });
+    then('viewing the activity log is denied', () => {
+      expect(denied).toBe(true);
     });
   });
 });

@@ -10,10 +10,10 @@ import {
 } from '@nestjs/swagger';
 import { CurrentActor } from '@/auth/current-actor.decorator';
 import type { Actor } from '@/shared/domain/actor';
-import { TaskActivity } from '@/task-activities/domain/task-activity';
 import { LogTaskActivity } from '@/task-activities/application/log-task-activity.use-case';
 import { ViewActivityLog } from '@/task-activities/application/view-activity-log.use-case';
 import { LogTaskActivityDto } from '@/task-activities/dto/log-task-activity.dto';
+import { presentActivity } from '@/task-activities/activity-view';
 
 @ApiTags('task-activities')
 @ApiBearerAuth('access-token')
@@ -38,7 +38,7 @@ export class TaskActivitiesController {
   @ApiResponse({ status: 404, description: 'Task not found' })
   async list(@Param('taskId') taskId: string, @CurrentActor() actor: Actor) {
     const activities = await this.viewActivityLog.execute({ actor, taskId });
-    return activities.map((activity) => this.serialize(activity));
+    return activities.map((activity) => presentActivity(activity));
   }
 
   @Post(':taskId/activities')
@@ -67,16 +67,6 @@ export class TaskActivitiesController {
       nextAction: body.nextAction,
       nextActionDate: body.nextActionDate,
     });
-    return this.serialize(activity);
-  }
-
-  private serialize(activity: TaskActivity) {
-    return {
-      id: activity.id,
-      taskId: activity.taskId,
-      actionType: activity.actionType,
-      status: activity.status,
-      activityDate: activity.activityDate,
-    };
+    return presentActivity(activity);
   }
 }
