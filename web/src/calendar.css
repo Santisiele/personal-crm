@@ -1,0 +1,41 @@
+/* Aligns FullCalendar with the Mantine theme (fonts, borders, today shading) and
+   makes it legible in both light and dark color schemes via Mantine CSS vars. */
+.fc {
+  --fc-border-color: var(--mantine-color-default-border);
+  --fc-today-bg-color: var(--mantine-color-indigo-light);
+  --fc-neutral-bg-color: var(--mantine-color-default-hover);
+  --fc-page-bg-color: transparent;
+  font-size: 0.875rem;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.fc .fc-button {
+  background-color: var(--mantine-color-default);
+  border-color: var(--mantine-color-default-border);
+  color: var(--mantine-color-text);
+  text-transform: capitalize;
+  box-shadow: none;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):hover {
+  background-color: var(--mantine-color-indigo-filled);
+  border-color: var(--mantine-color-indigo-filled);
+  color: var(--mantine-color-white);
+}
+
+.fc .fc-daygrid-day-number,
+.fc .fc-col-header-cell-cushion {
+  color: var(--mantine-color-text);
+  text-decoration: none;
+}
+
+.fc-event {
+  cursor: pointer;
+  padding: 1px 4px;
+  font-weight: 500;
+}
