@@ -9,6 +9,7 @@ import {
   createCompany,
   createCompanyStatus,
   deleteCompany,
+  deleteCompanyStatus,
   editCompany,
   getCompany,
   linkContactToCompany,
@@ -104,6 +105,15 @@ export function useCreateCompanyStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (description: string) => createCompanyStatus(description),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: COMPANY_STATUSES_KEY }),
+  });
+}
+
+export function useDeleteCompanyStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteCompanyStatus(id),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: COMPANY_STATUSES_KEY }),
   });

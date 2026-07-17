@@ -1,26 +1,54 @@
 import {
+  ActionIcon,
   Button,
   Card,
+  Divider,
   Group,
-  List,
   Loader,
   Stack,
   Text,
   TextInput,
   Title,
+  Tooltip,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { AxiosError } from 'axios';
-import { IconTag } from '@tabler/icons-react';
+import { IconTag, IconTrash } from '@tabler/icons-react';
+import type { CompanyStatus } from '@/api/types';
 import {
   useCompanyStatuses,
   useCreateCompanyStatus,
+  useDeleteCompanyStatus,
 } from '@/hooks/useCompanies';
 
 export function CompanyStatusesPage() {
   const { data: statuses, isLoading } = useCompanyStatuses();
   const createStatus = useCreateCompanyStatus();
+  const deleteStatus = useDeleteCompanyStatus();
+
+  const confirmDelete = (status: CompanyStatus) => {
+    modals.openConfirmModal({
+      title: 'Eliminar estado',
+      children: (
+        <Text size="sm">
+          ¿Eliminar el estado "{status.description}"? Deja de ofrecerse para
+          nuevas empresas; las que ya lo tienen lo conservan.
+        </Text>
+      ),
+      labels: { confirm: 'Eliminar', cancel: 'Cancelar' },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        try {
+          await deleteStatus.mutateAsync(status.id);
+          notifications.show({ color: 'green', message: 'Estado eliminado.' });
+        } catch {
+          notifications.show({ color: 'red', message: 'No se pudo eliminar.' });
+        }
+      },
+    });
+  };
 
   const form = useForm({
     initialValues: { description: '' },
@@ -84,11 +112,28 @@ export function CompanyStatusesPage() {
             Todavía no hay estados.
           </Text>
         ) : (
-          <List spacing="xs" icon={<IconTag size={16} />}>
-            {(statuses ?? []).map((status) => (
-              <List.Item key={status.id}>{status.description}</List.Item>
+          <Stack gap={0}>
+            {(statuses ?? []).map((status, i) => (
+              <div key={status.id}>
+                {i > 0 && <Divider />}
+                <Group justify="space-between" py="xs" wrap="nowrap">
+                  <Group gap="xs">
+                    <IconTag size={16} />
+                    <Text>{status.description}</Text>
+                  </Group>
+                  <Tooltip label="Eliminar">
+                    <ActionIcon
+                      variant="subtle"
+                      color="red"
+                      onClick={() => confirmDelete(status)}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Group>
+              </div>
             ))}
-          </List>
+          </Stack>
         )}
       </Card>
     </Stack>

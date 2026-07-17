@@ -68,3 +68,7 @@ export async function createCompanyStatus(
   });
   return data;
 }
+
+export async function deleteCompanyStatus(id: string): Promise<void> {
+  await api.delete(`/company-statuses/${id}`);
+}
