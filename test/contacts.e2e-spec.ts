@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { seedUserWithRole } from './helpers/seed-user';
 
 /**
  * End-to-end tests for the contacts read/edit endpoints against the REAL
@@ -33,12 +34,11 @@ describe('Contacts (e2e)', () => {
     return (res.body as { accessToken: string }).accessToken;
   };
 
+  // Fixtures are seeded directly (see seedUserWithRole): public registration
+  // now always yields a plain USER, so privileged fixtures cannot go through the
+  // API. The seeded row is identical to a registered one, so login still works.
   const createUser = async (name: string, role: string): Promise<string> => {
-    const res = await request(app.getHttpServer())
-      .post('/users')
-      .send({ name, role, password: 'secret-password' })
-      .expect(201);
-    const id = (res.body as { id: string }).id;
+    const id = await seedUserWithRole(prisma, name, role, 'secret-password');
     createdUserIds.push(id);
     return id;
   };

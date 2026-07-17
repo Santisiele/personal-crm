@@ -4,6 +4,7 @@ import request from 'supertest';
 import { sign } from 'jsonwebtoken';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { seedUserWithRole } from './helpers/seed-user';
 
 /**
  * End-to-end tests for the authentication token lifecycle against the REAL
@@ -29,12 +30,11 @@ describe('Auth token lifecycle (e2e)', () => {
 
   const userName = `E2E Auth ${RUN}`;
 
+  // Fixtures are seeded directly (see seedUserWithRole): public registration
+  // now always yields a plain USER, so privileged fixtures cannot go through the
+  // API. The seeded row is identical to a registered one, so login still works.
   const createUser = async (name: string, role: string): Promise<string> => {
-    const res = await request(app.getHttpServer())
-      .post('/users')
-      .send({ name, role, password: PASSWORD })
-      .expect(201);
-    const id = (res.body as { id: string }).id;
+    const id = await seedUserWithRole(prisma, name, role, PASSWORD);
     createdUserIds.push(id);
     return id;
   };

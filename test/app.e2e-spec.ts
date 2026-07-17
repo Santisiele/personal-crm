@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
+import { seedUserWithRole } from './helpers/seed-user';
 
 /**
  * End-to-end tests against the REAL database (the disposable Supabase dev DB).
@@ -51,12 +52,11 @@ describe('App (e2e)', () => {
     return (res.body as { accessToken: string }).accessToken;
   };
 
+  // Fixtures are seeded directly (see seedUserWithRole): public registration
+  // now always yields a plain USER, so privileged fixtures cannot go through the
+  // API. The seeded row is identical to a registered one, so login still works.
   const createUser = async (name: string, role: string): Promise<string> => {
-    const res = await request(app.getHttpServer())
-      .post('/users')
-      .send({ name, role, password: 'secret-password' })
-      .expect(201);
-    const id = (res.body as { id: string }).id;
+    const id = await seedUserWithRole(prisma, name, role, 'secret-password');
     createdUserIds.push(id);
     return id;
   };
@@ -245,6 +245,8 @@ describe('App (e2e)', () => {
           id: body.id,
           ownerId,
           assigneeId: ownerId,
+          title: 'E2E task',
+          description: 'created over HTTP',
           dueDate: null,
           companyId: null,
           status: 'PENDING',
@@ -329,6 +331,8 @@ describe('App (e2e)', () => {
           id: taskId,
           ownerId,
           assigneeId: otherId,
+          title: 'Owner reassigns',
+          description: 'for reassignment',
           dueDate: null,
           companyId: null,
           status: 'PENDING',
@@ -385,6 +389,29 @@ describe('App (e2e)', () => {
   });
 
   describe('user management', () => {
+    it('registers a public user as a plain USER (201)', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/users')
+        .send({ name: `E2E Register ${RUN}`, password: 'secret-password' })
+        .expect(201);
+      const body = res.body as { id: string; name: string; role: string };
+      createdUserIds.push(body.id);
+      expect(body.role).toBe('USER');
+    });
+
+    it('rejects a role supplied at registration (400)', async () => {
+      // Registration carries no role; forbidNonWhitelisted turns the smuggled
+      // field into a 400 rather than a silent privilege grant.
+      await request(app.getHttpServer())
+        .post('/users')
+        .send({
+          name: `E2E No Escalate ${RUN}`,
+          password: 'secret-password',
+          role: 'CREATOR',
+        })
+        .expect(400);
+    });
+
     it('lets a user change their own password (204)', async () => {
       const userId = await createUser(`E2E Pwd ${RUN}`, 'USER');
       const token = await login(`E2E Pwd ${RUN}`);
@@ -428,7 +455,7 @@ describe('App (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/users')
-        .send({ name, role: 'USER', password: 'secret-password' })
+        .send({ name, password: 'secret-password' })
         .expect(409);
     });
   });
