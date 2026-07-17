@@ -48,8 +48,9 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       if (mode === 'register') {
-        // New users self-register as plain USERs; a CREATOR promotes later.
-        await register({ ...values, role: 'USER' });
+        // New users self-register as plain USERs (the API enforces this); a
+        // CREATOR can promote them later from the Users screen.
+        await register(values);
         await login(values.name, values.password);
       } else {
         await login(values.name, values.password);

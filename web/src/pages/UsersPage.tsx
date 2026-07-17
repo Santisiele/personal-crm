@@ -236,12 +236,21 @@ export function UsersPage() {
               withAsterisk
               {...form.getInputProps('password')}
             />
-            <Select
-              label="Rol"
-              data={ROLE_OPTIONS}
-              allowDeselect={false}
-              {...form.getInputProps('role')}
-            />
+            {canAssignRoles ? (
+              <Select
+                label="Rol"
+                data={ROLE_OPTIONS}
+                allowDeselect={false}
+                {...form.getInputProps('role')}
+              />
+            ) : (
+              // Only a CREATOR can grant a role; others create plain users, so
+              // the picker is hidden and the role stays USER.
+              <Text size="sm" c="dimmed">
+                Se creará como <b>{ROLE_LABELS.USER}</b>. Solo un Creador puede
+                asignar otros roles.
+              </Text>
+            )}
             <Button type="submit" loading={createUser.isPending}>
               Crear
             </Button>

@@ -24,11 +24,13 @@ export async function fetchMe(): Promise<UserView> {
   return data;
 }
 
-/** Registers a new user. Public endpoint; used by the self-service sign-up. */
+/**
+ * Registers a new user. Public endpoint; the account is always created as a
+ * plain USER (the API rejects a role at registration), so no role is sent.
+ */
 export async function register(input: {
   name: string;
   password: string;
-  role: string;
 }): Promise<UserView> {
   const { data } = await axios.post<UserView>(`${baseURL}/users`, input);
   return data;

@@ -12,13 +12,25 @@ export async function getUser(id: string): Promise<UserView> {
   return data;
 }
 
+/**
+ * Creates a user with a target role. Registration always yields a plain USER, so
+ * a non-USER role is applied as a second, authorized step (PATCH /users/:id/role,
+ * which only a CREATOR may do). Returns the resulting view.
+ */
 export async function createUser(input: {
   name: string;
   password: string;
   role: UserRole;
 }): Promise<UserView> {
-  const { data } = await api.post<UserView>('/users', input);
-  return data;
+  const { data: created } = await api.post<UserView>('/users', {
+    name: input.name,
+    password: input.password,
+  });
+  if (input.role === 'USER') {
+    return created;
+  }
+  await changeUserRole(created.id, input.role);
+  return { ...created, role: input.role };
 }
 
 export async function changeUserRole(
