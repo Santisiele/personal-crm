@@ -32,7 +32,8 @@ web/src/
   auth/           # AuthContext (sesión + usuario actual) y guards de ruta (RequireAuth, RequirePrivileged)
   hooks/          # useTasks, useUsers (TanStack Query) y userColors (color determinístico por usuario)
   components/     # AppLayout (shell + nav por rol), TaskModal (crear/editar), UserColorLegend
-  pages/          # Login, Dashboard, Calendar, Tasks, Users, Profile
+  pages/          # Login, Dashboard, Calendar, Tasks, Contacts, Companies,
+                  #   CompanyDetail, CompanyStatuses, Users, Profile
   labels.ts       # traducción ES de las claves técnicas (estados, roles) — solo para mostrar
   theme.ts        # tema Mantine
   main.tsx        # providers (Mantine, Modals, Notifications, Query, Router, Auth)
@@ -57,6 +58,13 @@ web/src/
 - **Click en un día** → crear tarea con esa fecha. **Click en un evento** → editar. **Drag de un evento** → reprogramar (`PATCH /tasks/:id` con el nuevo `dueDate`; si falla, revierte).
 - Cada tarea se pinta con un **color determinístico por persona** (`hooks/userColors.ts`), estable entre sesiones. Los privilegiados tienen un toggle **dueño/asignado** y una **leyenda** nombre↔color (los nombres salen de `GET /users`).
 
+## Contactos y empresas
+
+- **Contactos** (`/contacts`): lista, alta, edición (`contactName`/`email`/`birth`) y baja lógica. Sin autorización por rol, igual que la API (cualquier autenticado gestiona contactos).
+- **Empresas** (`/companies`): lista visible a todos; alta/edición/estado/baja solo para privilegiados. El **detalle** (`/companies/:id`) muestra los campos, el estado y los **contactos vinculados**, y permite vincular un contacto (elegir de los existentes + rol + teléfono), cambiar estado y dar de baja.
+- **Estado de empresa**: el selector para asignar un estado usa el catálogo `GET /company-statuses` cuando el actor es **CREATOR**; para un **ADMIN** (que no puede leer ese catálogo CREATOR-only pero sí asignar estados) cae a los estados ya en uso en las empresas — un subconjunto seguro que no da 404 al asignar.
+- **Estados de empresa** (`/company-statuses`, **solo CREATOR**): ABM de las descripciones de estado (dato libre en español).
+
 ## i18n
 
-La API es en inglés (enums de estado, roles). El front traduce esas **claves técnicas** a español solo para mostrar (`labels.ts`); los datos libres se muestran verbatim. Mismo criterio que el backend.
+La API es en inglés (enums de estado, roles). El front traduce esas **claves técnicas** a español solo para mostrar (`labels.ts`); los datos libres (nombres, descripciones de estado de empresa) se muestran verbatim. Mismo criterio que el backend.

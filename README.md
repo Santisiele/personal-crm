@@ -164,6 +164,7 @@ SPA en **React 18 + TypeScript** (Vite), **Mantine** para UI y **FullCalendar** 
 - **Auth en el cliente.** Interceptor de Axios que adjunta el access token y, ante un `401`, canjea el refresh token en `POST /auth/refresh` (single-flight) y reintenta; si el refresh falla, cierra la sesión. Un contexto de React expone el usuario (`GET /auth/me`) y guards de ruta por rol.
 - **Calendario.** Vistas mes/semana; click para crear, click en evento para editar, y **drag para reprogramar** (`PATCH /tasks/:id`). Las tareas se colorean **por persona** (color determinístico por id); los privilegiados ven las tareas de todo el equipo con leyenda de nombres y un toggle dueño/asignado.
 - **Gestión de usuarios y permisos.** Directorio, asignación de roles (**solo CREATOR**, espejando la regla de la API), alta y baja lógica. Más dashboard con métricas (vencidas/hoy/en progreso/completadas) y cambio de la propia contraseña.
+- **Contactos y empresas.** Contactos (alta/edición/baja, abierto a cualquier autenticado como la API) y empresas (lista para todos; alta/edición/estado/baja solo privilegiados), con el detalle de empresa mostrando y permitiendo vincular contactos, y un ABM de estados de empresa solo para CREATOR.
 - **i18n.** Las claves técnicas de la API (estados, roles) se traducen a español **solo para mostrar** (`web/src/labels.ts`); los datos libres se muestran tal cual. Mismo criterio que el backend (API en inglés, traducción en el front).
 
 El backend excluye `web/` de su `tsconfig` para que el compilador de Nest no toque el front.
