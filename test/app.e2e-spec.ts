@@ -348,6 +348,18 @@ describe('App (e2e)', () => {
         .send({ newAssigneeId: adminId })
         .expect(403);
     });
+
+    it('lets an admin reassign a task held by a plain user (204)', async () => {
+      // The task is owned by (and assigned to) a plain USER; an ADMIN outranks
+      // the assignee, so it may reassign it even without owning it.
+      const taskId = await createOwnedTask('Admin reassigns junior task');
+
+      await request(app.getHttpServer())
+        .patch(`/tasks/${taskId}/assignee`)
+        .set(bearer(adminToken))
+        .send({ newAssigneeId: otherId })
+        .expect(204);
+    });
   });
 
   describe('archiving', () => {
@@ -389,6 +401,19 @@ describe('App (e2e)', () => {
   });
 
   describe('user management', () => {
+    it('lets any authenticated user list assignable users (id + name)', async () => {
+      // A plain user cannot list the full directory but can list assignees.
+      const res = await request(app.getHttpServer())
+        .get('/users/assignable')
+        .set(bearer(ownerToken))
+        .expect(200);
+      const body = res.body as Array<Record<string, unknown>>;
+      expect(body.length).toBeGreaterThan(0);
+      for (const entry of body) {
+        expect(Object.keys(entry).sort()).toEqual(['id', 'name']);
+      }
+    });
+
     it('registers a public user as a plain USER (201)', async () => {
       const res = await request(app.getHttpServer())
         .post('/users')
@@ -689,7 +714,11 @@ describe('App (e2e)', () => {
       await request(app.getHttpServer())
         .post(`/tasks/${taskId}/activities`)
         .set(bearer(ownerToken))
-        .send({ actionType: 'NOTE', status: 'DONE', activityDate: '2026-05-06' })
+        .send({
+          actionType: 'NOTE',
+          status: 'DONE',
+          activityDate: '2026-05-06',
+        })
         .expect(201);
 
       const res = await request(app.getHttpServer())
