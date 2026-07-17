@@ -19,6 +19,7 @@ import { notifications } from '@mantine/notifications';
 import { modals } from '@mantine/modals';
 import {
   IconArchive,
+  IconActivity,
   IconDots,
   IconEdit,
   IconPlus,
@@ -37,6 +38,7 @@ import {
   TASK_STATUS_ORDER,
 } from '@/labels';
 import { TaskModal } from '@/components/TaskModal';
+import { TaskActivityDrawer } from '@/components/TaskActivityDrawer';
 
 type StatusFilter = TaskStatus | 'ALL';
 
@@ -50,6 +52,18 @@ export function TasksPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [modalOpened, modal] = useDisclosure(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [activityOpened, activityDrawer] = useDisclosure(false);
+  const [activityTask, setActivityTask] = useState<Task | null>(null);
+
+  // Only the owner or a privileged actor may read/log a task's activity, which
+  // is exactly what the API authorizes; the action is hidden otherwise.
+  const canSeeActivity = (task: Task) =>
+    privileged || task.ownerId === user?.id;
+
+  const openActivity = (task: Task) => {
+    setActivityTask(task);
+    activityDrawer.open();
+  };
 
   const filtered = useMemo(() => {
     const all = tasks ?? [];
@@ -193,6 +207,16 @@ export function TasksPage() {
                   </Table.Td>
                   <Table.Td>
                     <Group gap={4} justify="flex-end" wrap="nowrap">
+                      {canSeeActivity(task) && (
+                        <Tooltip label="Actividad">
+                          <ActionIcon
+                            variant="subtle"
+                            onClick={() => openActivity(task)}
+                          >
+                            <IconActivity size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
                       <Tooltip label="Editar">
                         <ActionIcon
                           variant="subtle"
@@ -241,6 +265,11 @@ export function TasksPage() {
         opened={modalOpened}
         onClose={modal.close}
         task={editingTask}
+      />
+      <TaskActivityDrawer
+        task={activityTask}
+        opened={activityOpened}
+        onClose={activityDrawer.close}
       />
     </Stack>
   );

@@ -18,6 +18,8 @@ import {
   IconBuilding,
   IconCalendar,
   IconChecklist,
+  IconInbox,
+  IconLayoutColumns,
   IconLayoutDashboard,
   IconLogout,
   IconTags,
@@ -25,6 +27,7 @@ import {
   IconUsers,
 } from '@tabler/icons-react';
 import { useAuth } from '@/auth/AuthContext';
+import { usePendingAssignmentsCount } from '@/hooks/useAssignments';
 import { ROLE_LABELS } from '@/labels';
 
 interface NavItem {
@@ -39,6 +42,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Panel', icon: IconLayoutDashboard },
   { to: '/calendar', label: 'Calendario', icon: IconCalendar },
   { to: '/tasks', label: 'Tareas', icon: IconChecklist },
+  { to: '/board', label: 'Tablero', icon: IconLayoutColumns },
+  { to: '/inbox', label: 'Bandeja', icon: IconInbox },
   { to: '/contacts', label: 'Contactos', icon: IconAddressBook },
   { to: '/companies', label: 'Empresas', icon: IconBuilding },
   { to: '/users', label: 'Usuarios', icon: IconUsers, privileged: true },
@@ -53,6 +58,7 @@ const NAV_ITEMS: NavItem[] = [
 export function AppLayout() {
   const [opened, { toggle, close }] = useDisclosure();
   const { user, privileged, logout } = useAuth();
+  const pendingCount = usePendingAssignmentsCount();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -132,6 +138,13 @@ export function AppLayout() {
                 end={item.to === '/'}
                 label={item.label}
                 leftSection={<item.icon size={18} />}
+                rightSection={
+                  item.to === '/inbox' && pendingCount > 0 ? (
+                    <Badge size="sm" circle color="orange">
+                      {pendingCount}
+                    </Badge>
+                  ) : undefined
+                }
                 onClick={close}
               />
             ),

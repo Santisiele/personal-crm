@@ -111,3 +111,32 @@ export interface CompanyStatus {
   id: string;
   description: string;
 }
+
+/** A logged task activity as returned by the API (owner/privileged only). */
+export interface TaskActivity {
+  id: string;
+  taskId: string;
+  actionType: string;
+  status: string;
+  activityDate: string;
+}
+
+export interface LogActivityInput {
+  actionType: string;
+  status: string;
+  activityDate: string;
+  description?: string;
+  nextAction?: string;
+  nextActionDate?: string;
+}
+
+export type AssignmentStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
+
+export interface TaskAssignment {
+  id: string;
+  taskId: string;
+  assigneeId: string;
+  assignedById: string;
+  status: AssignmentStatus;
+  assignedAt: string;
+}

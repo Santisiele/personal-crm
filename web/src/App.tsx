@@ -9,6 +9,8 @@ import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { CalendarPage } from '@/pages/CalendarPage';
 import { TasksPage } from '@/pages/TasksPage';
+import { KanbanPage } from '@/pages/KanbanPage';
+import { InboxPage } from '@/pages/InboxPage';
 import { ContactsPage } from '@/pages/ContactsPage';
 import { CompaniesPage } from '@/pages/CompaniesPage';
 import { CompanyDetailPage } from '@/pages/CompanyDetailPage';
@@ -26,6 +28,8 @@ export function App() {
           <Route index element={<DashboardPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="tasks" element={<TasksPage />} />
+          <Route path="board" element={<KanbanPage />} />
+          <Route path="inbox" element={<InboxPage />} />
           <Route path="contacts" element={<ContactsPage />} />
           <Route path="companies" element={<CompaniesPage />} />
           <Route path="companies/:id" element={<CompanyDetailPage />} />
