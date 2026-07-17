@@ -1,5 +1,10 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
+import { UsersModule } from '@/users/users.module';
+import {
+  USER_REPOSITORY,
+  UserRepository,
+} from '@/users/domain/user.repository';
 import { TasksController } from '@/tasks/tasks.controller';
 import {
   TASK_REPOSITORY,
@@ -20,6 +25,7 @@ import { ListTasks } from '@/tasks/application/list-tasks.use-case';
  * domain and application layers free of any NestJS dependency.
  */
 @Module({
+  imports: [UsersModule],
   providers: [
     {
       provide: TASK_REPOSITORY,
@@ -38,8 +44,9 @@ import { ListTasks } from '@/tasks/application/list-tasks.use-case';
     },
     {
       provide: ReassignTask,
-      useFactory: (tasks: TaskRepository) => new ReassignTask(tasks),
-      inject: [TASK_REPOSITORY],
+      useFactory: (tasks: TaskRepository, users: UserRepository) =>
+        new ReassignTask(tasks, users),
+      inject: [TASK_REPOSITORY, USER_REPOSITORY],
     },
     {
       provide: ArchiveTask,

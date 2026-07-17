@@ -1,4 +1,4 @@
-import { UserRole } from '@/users/domain/user-role';
+import { outranks, UserRole } from '@/users/domain/user-role';
 import { Actor } from '@/shared/domain/actor';
 import { Task } from '@/tasks/domain/task';
 
@@ -22,8 +22,23 @@ export class TaskAccessPolicy {
     return this.isPrivileged(actor);
   }
 
-  canReassign(actor: Actor, task: Task): boolean {
-    return this.owns(actor, task);
+  /**
+   * Who may reassign a task. Its owner always can. Otherwise an actor may
+   * reassign a task whose current assignee is strictly below them in the role
+   * hierarchy (USER < ADMIN < CREATOR) — so a manager can move work off someone
+   * more junior, but not off a peer or a superior. `assigneeRole` is the role of
+   * the task's current assignee (null when unassigned, which only the owner may
+   * then reassign); the use case resolves it since the aggregate holds only ids.
+   */
+  canReassign(
+    actor: Actor,
+    task: Task,
+    assigneeRole: UserRole | null,
+  ): boolean {
+    if (this.owns(actor, task)) {
+      return true;
+    }
+    return assigneeRole !== null && outranks(actor.role, assigneeRole);
   }
 
   /**

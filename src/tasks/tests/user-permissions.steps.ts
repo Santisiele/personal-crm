@@ -6,6 +6,8 @@ import { AccessDeniedError } from '@/tasks/domain/access-denied.error';
 import { ViewTask } from '@/tasks/application/view-task.use-case';
 import { ReassignTask } from '@/tasks/application/reassign-task.use-case';
 import { InMemoryTaskRepository } from '@/tasks/infrastructure/persistence/in-memory-task.repository';
+import { User } from '@/users/domain/user';
+import { InMemoryUserRepository } from '@/users/infrastructure/persistence/in-memory-user.repository';
 
 const feature = loadFeature('specs/user_permissions.feature', {
   errors: false,
@@ -16,6 +18,7 @@ const NEW_ASSIGNEE_ID = 'new-assignee';
 
 defineFeature(feature, (test) => {
   let tasks: InMemoryTaskRepository;
+  let users: InMemoryUserRepository;
   let viewTask: ViewTask;
   let reassignTask: ReassignTask;
   let actor: Actor;
@@ -24,9 +27,36 @@ defineFeature(feature, (test) => {
 
   beforeEach(() => {
     tasks = new InMemoryTaskRepository();
+    users = new InMemoryUserRepository();
     viewTask = new ViewTask(tasks);
-    reassignTask = new ReassignTask(tasks);
+    reassignTask = new ReassignTask(tasks, users);
   });
+
+  // Persists a user with a chosen role and returns its repository-assigned id,
+  // so a task can be assigned to someone of a specific rank.
+  const persistUser = async (name: string, role: UserRole): Promise<string> => {
+    const user = User.create({ name, role, passwordHash: 'hashed' });
+    await users.save(user);
+    return user.id!;
+  };
+
+  // A task owned by an unrelated user and currently assigned to `assigneeId`,
+  // so authorization turns on the assignee's rank rather than ownership.
+  const aTaskAssignedTo = (
+    and: DefineStepFunction,
+    phrase: string,
+    role: UserRole,
+  ) => {
+    and(phrase, async () => {
+      const assigneeId = await persistUser(`Assignee ${role}`, role);
+      task = Task.rehydrate({
+        id: 'task-1',
+        ownerId: 'some-other-owner',
+        assigneeId,
+      });
+      await tasks.save(task);
+    });
+  };
 
   const authenticatedAs = (
     given: DefineStepFunction,
@@ -158,5 +188,72 @@ defineFeature(feature, (test) => {
     aTaskBelongsToAnotherUser(and);
     attemptsToReassign(when, 'attempts to reassign the task');
     accessIsDenied(then);
+  });
+
+  const reassignmentIsSuccessful = (then: DefineStepFunction) => {
+    then('the reassignment is successful', async () => {
+      expect(accessGranted).toBe(true);
+      const stored = await tasks.findById(task.id!);
+      expect(stored!.assigneeId).toBe(NEW_ASSIGNEE_ID);
+    });
+  };
+
+  test('An administrator reassigns a task held by a plain user', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    authenticatedAs(
+      given,
+      'an administrator is authenticated',
+      UserRole.ADMIN,
+      'admin-1',
+    );
+    aTaskAssignedTo(and, 'a task is assigned to a plain user', UserRole.USER);
+    attemptsToReassign(when, 'reassigns the task');
+    reassignmentIsSuccessful(then);
+  });
+
+  test('An administrator cannot reassign a task held by another administrator', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    authenticatedAs(
+      given,
+      'an administrator is authenticated',
+      UserRole.ADMIN,
+      'admin-1',
+    );
+    aTaskAssignedTo(
+      and,
+      'a task is assigned to another administrator',
+      UserRole.ADMIN,
+    );
+    attemptsToReassign(when, 'attempts to reassign the task');
+    accessIsDenied(then);
+  });
+
+  test('A creator reassigns a task held by an administrator', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    authenticatedAs(
+      given,
+      'a creator is authenticated',
+      UserRole.CREATOR,
+      'creator-1',
+    );
+    aTaskAssignedTo(
+      and,
+      'a task is assigned to an administrator',
+      UserRole.ADMIN,
+    );
+    attemptsToReassign(when, 'reassigns the task');
+    reassignmentIsSuccessful(then);
   });
 });

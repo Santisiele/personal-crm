@@ -35,3 +35,21 @@ Given a user is authenticated
 And the task belongs to another user
 When attempts to reassign the task
 Then access is denied
+
+Scenario: An administrator reassigns a task held by a plain user
+Given an administrator is authenticated
+And a task is assigned to a plain user
+When reassigns the task
+Then the reassignment is successful
+
+Scenario: An administrator cannot reassign a task held by another administrator
+Given an administrator is authenticated
+And a task is assigned to another administrator
+When attempts to reassign the task
+Then access is denied
+
+Scenario: A creator reassigns a task held by an administrator
+Given a creator is authenticated
+And a task is assigned to an administrator
+When reassigns the task
+Then the reassignment is successful
