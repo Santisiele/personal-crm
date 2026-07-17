@@ -26,6 +26,7 @@ describe('App (e2e)', () => {
   let ownerToken: string;
   let otherToken: string;
   let adminToken: string;
+  let creatorToken: string;
 
   // Lookup rows we may have to seed, and tasks we create — all cleaned up.
   let seededTaskStatusId: bigint | null = null;
@@ -134,9 +135,11 @@ describe('App (e2e)', () => {
     ownerId = await createUser(`E2E Owner ${RUN}`, 'USER');
     otherId = await createUser(`E2E Other ${RUN}`, 'USER');
     adminId = await createUser(`E2E Admin ${RUN}`, 'ADMIN');
+    await createUser(`E2E Creator ${RUN}`, 'CREATOR');
     ownerToken = await login(`E2E Owner ${RUN}`);
     otherToken = await login(`E2E Other ${RUN}`);
     adminToken = await login(`E2E Admin ${RUN}`);
+    creatorToken = await login(`E2E Creator ${RUN}`);
   });
 
   afterAll(async () => {
@@ -404,9 +407,11 @@ describe('App (e2e)', () => {
     it("changes a user's role (204)", async () => {
       const userId = await createUser(`E2E Promote ${RUN}`, 'USER');
 
+      // Assigning roles is the CREATOR's prerogative; an ADMIN cannot mint
+      // another ADMIN (see role_assignment.feature).
       await request(app.getHttpServer())
         .patch(`/users/${userId}/role`)
-        .set(bearer(adminToken))
+        .set(bearer(creatorToken))
         .send({ role: 'ADMIN' })
         .expect(204);
 
