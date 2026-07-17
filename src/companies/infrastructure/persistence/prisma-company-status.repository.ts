@@ -1,5 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { CompanyStatus } from '@/companies/domain/company-status';
+import {
+  CompanyStatus,
+  CompanyStatusId,
+} from '@/companies/domain/company-status';
 import { CompanyStatusRepository } from '@/companies/domain/company-status.repository';
 
 /**
@@ -21,16 +24,31 @@ export class PrismaCompanyStatusRepository implements CompanyStatusRepository {
 
   async findAll(): Promise<CompanyStatus[]> {
     const rows = await this.prisma.company_status.findMany({
+      where: { deleted_at: null },
       orderBy: { id: 'asc' },
     });
     return rows.map((row) => this.toDomain(row));
   }
 
-  async findByDescription(description: string): Promise<CompanyStatus | null> {
+  async findById(id: CompanyStatusId): Promise<CompanyStatus | null> {
     const row = await this.prisma.company_status.findFirst({
-      where: { description },
+      where: { id: BigInt(id), deleted_at: null },
     });
     return row ? this.toDomain(row) : null;
+  }
+
+  async findByDescription(description: string): Promise<CompanyStatus | null> {
+    const row = await this.prisma.company_status.findFirst({
+      where: { description, deleted_at: null },
+    });
+    return row ? this.toDomain(row) : null;
+  }
+
+  async softDelete(id: CompanyStatusId, deletedBy: string): Promise<void> {
+    await this.prisma.company_status.update({
+      where: { id: BigInt(id) },
+      data: { deleted_at: new Date(), deleted_by: BigInt(deletedBy) },
+    });
   }
 
   private toDomain(row: { id: bigint; description: string }): CompanyStatus {

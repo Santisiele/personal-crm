@@ -21,3 +21,20 @@ Given a creator is authenticated
 And two company statuses exist
 When the company statuses are listed
 Then both company statuses are returned
+
+Scenario: A creator deletes a company status
+Given a creator is authenticated
+And a company status already exists
+When the creator deletes that company status
+Then the company status no longer appears in the catalogue
+
+Scenario: A user cannot delete a company status
+Given a user is authenticated
+And a company status already exists
+When the user attempts to delete that company status
+Then deleting the company status is denied
+
+Scenario: Deleting a company status that does not exist
+Given a creator is authenticated
+When the creator deletes a company status that does not exist
+Then the company status is reported as not found

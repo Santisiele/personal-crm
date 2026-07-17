@@ -25,6 +25,7 @@ import { PrismaCompanyStatusRepository } from '@/companies/infrastructure/persis
 import { CreateCompany } from '@/companies/application/create-company.use-case';
 import { CreateCompanyStatus } from '@/companies/application/create-company-status.use-case';
 import { ListCompanyStatuses } from '@/companies/application/list-company-statuses.use-case';
+import { DeleteCompanyStatus } from '@/companies/application/delete-company-status.use-case';
 import { LinkContactToCompany } from '@/companies/application/link-contact-to-company.use-case';
 import { ListCompanies } from '@/companies/application/list-companies.use-case';
 import { ViewCompany } from '@/companies/application/view-company.use-case';
@@ -126,6 +127,12 @@ import { DeleteCompany } from '@/companies/application/delete-company.use-case';
         new ListCompanyStatuses(statuses),
       inject: [COMPANY_STATUS_REPOSITORY],
     },
+    {
+      provide: DeleteCompanyStatus,
+      useFactory: (statuses: CompanyStatusRepository) =>
+        new DeleteCompanyStatus(statuses),
+      inject: [COMPANY_STATUS_REPOSITORY],
+    },
   ],
   controllers: [CompaniesController, CompanyStatusesController],
   exports: [
@@ -138,6 +145,7 @@ import { DeleteCompany } from '@/companies/application/delete-company.use-case';
     DeleteCompany,
     CreateCompanyStatus,
     ListCompanyStatuses,
+    DeleteCompanyStatus,
   ],
 })
 export class CompaniesModule {}
