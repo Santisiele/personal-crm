@@ -71,7 +71,7 @@ web/src/
 - **Contactos** (`/contacts`): lista, alta, edición (`contactName`/`email`/`birth`) y baja lógica. Sin autorización por rol, igual que la API (cualquier autenticado gestiona contactos).
 - **Empresas** (`/companies`): lista visible a todos; alta/edición/estado/baja solo para privilegiados. El **detalle** (`/companies/:id`) muestra los campos, el estado y los **contactos vinculados**, y permite vincular un contacto (elegir de los existentes + rol + teléfono), cambiar estado y dar de baja.
 - **Estado de empresa**: el selector para asignar un estado usa el catálogo `GET /company-statuses` cuando el actor es **CREATOR**; para un **ADMIN** (que no puede leer ese catálogo CREATOR-only pero sí asignar estados) cae a los estados ya en uso en las empresas — un subconjunto seguro que no da 404 al asignar.
-- **Estados de empresa** (`/company-statuses`, **solo CREATOR**): ABM de las descripciones de estado (dato libre en español).
+- **Estados de empresa** (`/company-statuses`, **solo CREATOR**): ABM de las descripciones de estado (dato libre en español) — crear y **eliminar** (baja lógica: el estado sale del catálogo pero las empresas que ya lo tienen lo conservan).
 
 ## i18n
 

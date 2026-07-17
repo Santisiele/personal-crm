@@ -113,8 +113,8 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 
 #### Gestión de estados de empresa (`CompanyStatusesController`, **solo CREATOR**)
 - **Dominio**: `CompanyStatus` (id repo-asignado; `description` = valor de negocio **libre**, puede ser español). Puerto `CompanyStatusRepository` (`save`, `findAll`, `findByDescription`). `CompanyStatusAlreadyExistsError` (→409). `CompanyAccessPolicy.canManageStatuses` = solo CREATOR.
-- **Casos de uso**: `CreateCompanyStatus` (rechaza duplicado → 409), `ListCompanyStatuses`. Adaptadores in-memory + Prisma (tabla `company_status`).
-- **Endpoints**: `POST /company-statuses` (crear; 409 si duplicado, 403 si no CREATOR), `GET /company-statuses` (listar; 403 si no CREATOR).
+- **Casos de uso**: `CreateCompanyStatus` (rechaza duplicado → 409), `ListCompanyStatuses`, `DeleteCompanyStatus` (**baja lógica**, solo CREATOR; 404 si no existe). Adaptadores in-memory + Prisma (tabla `company_status`). El repositorio ganó `findById` + `softDelete`; **todas las lecturas excluyen los borrados** (`findAll`/`findById`/`findByDescription` filtran `deleted_at: null`), así que un estado borrado sale del catálogo y no se puede asignar, pero **la fila sobrevive** para que las empresas ya clasificadas con él sigan resolviendo su etiqueta.
+- **Endpoints**: `POST /company-statuses` (crear; 409 si duplicado, 403 si no CREATOR), `GET /company-statuses` (listar; 403 si no CREATOR), `DELETE /company-statuses/:id` (**baja lógica**, solo CREATOR; `403` si no, `404` si no existe, `204` si ok).
 
 ### Contexto `task-activities` (`src/task-activities`)
 - **Dominio**: `TaskActivity` (id repo-asignado; `taskId`, `authorId` = actor, `activityDate` ISO, `actionType`/`status` por descripción, `description?`, `nextAction?`, `nextActionDate?`).
@@ -246,9 +246,10 @@ Para el **monolito en prod**: `cd web && pnpm build` y luego `pnpm start:prod` d
 - **DB sin migraciones versionadas**: el índice único `app_user_name_key` se aplicó a mano sobre la dev DB para matchear el `@unique` del schema. Si en algún momento se adopta `prisma migrate`, formalizarlo.
 - **Columnas de baja lógica (`deleted_at`/`deleted_by`)**: se agregaron al schema en `app_user`, `contact` y `company` (la `task` ya las tenía). Como no hay migraciones versionadas, **aplicarlas a mano sobre la dev DB** antes de correr e2e/integración, si no las queries de baja/listado fallan:
   ```sql
-  ALTER TABLE app_user ADD COLUMN deleted_at timestamptz, ADD COLUMN deleted_by bigint;
-  ALTER TABLE contact  ADD COLUMN deleted_at timestamptz, ADD COLUMN deleted_by bigint;
-  ALTER TABLE company  ADD COLUMN deleted_at timestamptz, ADD COLUMN deleted_by bigint;
+  ALTER TABLE app_user       ADD COLUMN deleted_at timestamptz, ADD COLUMN deleted_by bigint;
+  ALTER TABLE contact        ADD COLUMN deleted_at timestamptz, ADD COLUMN deleted_by bigint;
+  ALTER TABLE company        ADD COLUMN deleted_at timestamptz, ADD COLUMN deleted_by bigint;
+  ALTER TABLE company_status ADD COLUMN deleted_at timestamptz, ADD COLUMN deleted_by bigint;
   ```
 - **`Task.status` en el dominio** (implementado): el agregado modela `status` (`TaskStatus`: `PENDING` | `IN_PROGRESS` | `DONE`), default `PENDING` al crear, y se transiciona vía `PATCH /tasks/:id/status`. El adaptador Prisma resuelve `task_status` por descripción (fallback al de menor id si la descripción no está seedeada), así que conviene seedear las descripciones `PENDING`/`IN_PROGRESS`/`DONE` para que el flujo persista el estado correcto.
 - **Refresh stateless (sin revocación)**: el refresh token es un JWT firmado sin store en servidor, así que **no se puede revocar** antes de su `exp` (logout solo descarta el token en el cliente). Si hace falta revocación/rotación (logout server-side, detección de reuso), recién ahí agregar un store de refresh tokens detrás del puerto `TokenIssuer` (el escenario lo pediría primero).
