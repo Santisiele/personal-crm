@@ -12,8 +12,9 @@ import { UserId } from '@/users/domain/user';
  *   themselves.
  * - Deactivating (logically deleting) a user is reserved for privileged actors.
  * - Managing role definitions is reserved for the CREATOR alone.
- * - Granting a role to a user is likewise the CREATOR's prerogative; an ADMIN is
- *   confined to plain users (see canAssignRole).
+ * - Granting a role is authorized by a hierarchy: the CREATOR may assign any
+ *   role; an ADMIN manages the ordinary team (USER <-> ADMIN) but may never grant
+ *   the CREATOR role nor touch a CREATOR (see canAssignRole).
  */
 export class UserAccessPolicy {
   private static readonly PRIVILEGED_ROLES = [UserRole.ADMIN, UserRole.CREATOR];
@@ -34,16 +35,13 @@ export class UserAccessPolicy {
   /**
    * Whether the actor may move a user from `currentRole` to `newRole`.
    *
-   * The CREATOR has full authority. An ADMIN is confined to plain users and may
-   * not grant anything above USER, so it can neither mint a peer nor tamper with
-   * a superior — the two ways an ADMIN could otherwise escalate. Everyone else,
-   * notably a plain user acting on themselves, is refused outright.
-   *
-   * Both ends are constrained on purpose: gating only `newRole` would still let
-   * an ADMIN demote the CREATOR, and gating only `currentRole` would let one
-   * ADMIN promote a plain user into a second ADMIN. With today's three roles that
-   * leaves an ADMIN no effective move; the rule is nonetheless stated in full so
-   * that adding a role below USER needs no rethink here.
+   * The CREATOR has full authority. An ADMIN manages the ordinary team: it may
+   * move a target freely between USER and ADMIN (promote a user, demote an
+   * admin), but both ends must stay within {USER, ADMIN}. That single constraint
+   * blocks the two escalations an ADMIN could otherwise attempt: granting the
+   * CREATOR role (newRole === CREATOR) and demoting or otherwise touching a
+   * CREATOR (currentRole === CREATOR). Everyone else — notably a plain user
+   * acting on themselves — is refused outright.
    */
   canAssignRole(
     actor: Actor,
@@ -54,7 +52,8 @@ export class UserAccessPolicy {
       return true;
     }
     if (actor.role === UserRole.ADMIN) {
-      return currentRole === UserRole.USER && newRole === UserRole.USER;
+      const manageable: UserRole[] = [UserRole.USER, UserRole.ADMIN];
+      return manageable.includes(currentRole) && manageable.includes(newRole);
     }
     return false;
   }

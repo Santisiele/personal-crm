@@ -112,6 +112,25 @@ defineFeature(feature, (test) => {
     });
   });
 
+  test('The creator promotes a user to creator', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    aCreatorIsAuthenticated(given);
+    aPlainUserExists(and);
+
+    when('the creator assigns the CREATOR role to that user', async () => {
+      await assignRole(target.id!, UserRole.CREATOR);
+    });
+
+    then('the role is assigned', async () => {
+      const stored = await users.findById(target.id!);
+      expect(stored!.role).toBe(UserRole.CREATOR);
+    });
+  });
+
   test('The creator demotes an administrator to plain user', ({
     given,
     and,
@@ -137,6 +156,50 @@ defineFeature(feature, (test) => {
     });
   });
 
+  test('An administrator promotes a user to administrator', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    anAdministratorIsAuthenticated(given);
+    aPlainUserExists(and);
+
+    when('the administrator assigns the ADMIN role to that user', async () => {
+      await assignRole(target.id!, UserRole.ADMIN);
+    });
+
+    then('the role is assigned', async () => {
+      const stored = await users.findById(target.id!);
+      expect(stored!.role).toBe(UserRole.ADMIN);
+    });
+  });
+
+  test('An administrator demotes an administrator to plain user', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    anAdministratorIsAuthenticated(given);
+
+    and('another administrator exists', async () => {
+      targetIs(await persist('Other Admin', UserRole.ADMIN));
+    });
+
+    when(
+      'the administrator assigns the USER role to that administrator',
+      async () => {
+        await assignRole(target.id!, UserRole.USER);
+      },
+    );
+
+    then('the role is assigned', async () => {
+      const stored = await users.findById(target.id!);
+      expect(stored!.role).toBe(UserRole.USER);
+    });
+  });
+
   test('A plain user cannot promote themselves', ({ given, when, then }) => {
     aPlainUserIsAuthenticated(given);
 
@@ -149,7 +212,7 @@ defineFeature(feature, (test) => {
     theRoleAssignmentIsDenied(then);
   });
 
-  test('An administrator cannot mint another administrator', ({
+  test('An administrator cannot grant the creator role', ({
     given,
     and,
     when,
@@ -158,9 +221,12 @@ defineFeature(feature, (test) => {
     anAdministratorIsAuthenticated(given);
     aPlainUserExists(and);
 
-    when('the administrator assigns the ADMIN role to that user', async () => {
-      await assignRole(target.id!, UserRole.ADMIN);
-    });
+    when(
+      'the administrator assigns the CREATOR role to that user',
+      async () => {
+        await assignRole(target.id!, UserRole.CREATOR);
+      },
+    );
 
     theRoleAssignmentIsDenied(then);
   });
