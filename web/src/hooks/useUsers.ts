@@ -8,12 +8,22 @@ import {
   changeUserRole,
   createUser,
   deactivateUser,
+  listAssignableUsers,
   listUsers,
 } from '@/api/users';
 import type { UserRole, UserView } from '@/api/types';
 import { useAuth } from '@/auth/AuthContext';
 
 const USERS_KEY = ['users'] as const;
+const ASSIGNABLE_KEY = ['users', 'assignable'] as const;
+
+/**
+ * The users a task may be assigned to (id + name), available to any authenticated
+ * actor — so even a plain user can pick who to reassign their own task to.
+ */
+export function useAssignableUsers() {
+  return useQuery({ queryKey: ASSIGNABLE_KEY, queryFn: listAssignableUsers });
+}
 
 /**
  * Loads the user directory. Only privileged actors may list users, so the query

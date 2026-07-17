@@ -9,10 +9,28 @@ export function isPrivileged(role: UserRole): boolean {
   return PRIVILEGED_ROLES.includes(role);
 }
 
+/** Role seniority, low to high, mirroring the API's ROLE_RANK. */
+export const ROLE_RANK: Record<UserRole, number> = {
+  USER: 0,
+  ADMIN: 1,
+  CREATOR: 2,
+};
+
+/** Whether role `a` is strictly more senior than role `b`. */
+export function outranks(a: UserRole, b: UserRole): boolean {
+  return ROLE_RANK[a] > ROLE_RANK[b];
+}
+
 export interface UserView {
   id: string;
   name: string;
   role: UserRole;
+}
+
+/** A minimal directory entry for picking an assignee (no role/credentials). */
+export interface AssignableUser {
+  id: string;
+  name: string;
 }
 
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE';

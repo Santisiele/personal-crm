@@ -1,9 +1,15 @@
 import { api } from '@/api/client';
-import type { UserRole, UserView } from '@/api/types';
+import type { AssignableUser, UserRole, UserView } from '@/api/types';
 
 /** Lists the user directory. Privileged actors (ADMIN/CREATOR) only. */
 export async function listUsers(): Promise<UserView[]> {
   const { data } = await api.get<UserView[]>('/users');
+  return data;
+}
+
+/** Lists users a task may be assigned to (id + name); any authenticated user. */
+export async function listAssignableUsers(): Promise<AssignableUser[]> {
+  const { data } = await api.get<AssignableUser[]>('/users/assignable');
   return data;
 }
 

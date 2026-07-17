@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   Button,
   Group,
@@ -11,10 +11,10 @@ import {
 import { DatePickerInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
-import type { Task } from '@/api/types';
+import { outranks, type Task } from '@/api/types';
 import { useAuth } from '@/auth/AuthContext';
-import { useUsers } from '@/hooks/useUsers';
-import { useCreateTask, useEditTask } from '@/hooks/useTasks';
+import { useAssignableUsers, useUsers } from '@/hooks/useUsers';
+import { useCreateTask, useEditTask, useReassignTask } from '@/hooks/useTasks';
 
 interface TaskModalProps {
   opened: boolean;
@@ -53,10 +53,33 @@ export function TaskModal({
   defaultDate,
 }: TaskModalProps) {
   const { user, privileged } = useAuth();
-  const { data: users } = useUsers();
+  const { data: assignableUsers } = useAssignableUsers();
+  // The full directory (with roles) is privileged-only; used to compare the
+  // current assignee's rank when deciding if this actor may reassign.
+  const { data: directory } = useUsers();
   const createTask = useCreateTask();
   const editTask = useEditTask();
+  const reassignTask = useReassignTask();
   const editing = Boolean(task);
+
+  // Whether this actor may reassign this task: its owner always may; otherwise a
+  // privileged actor may if it outranks the current assignee (mirrors the API's
+  // TaskAccessPolicy.canReassign). A plain user can only reassign their own.
+  const canReassign = useMemo(() => {
+    if (!editing || !task || !user) {
+      return false;
+    }
+    if (task.ownerId === user.id) {
+      return true;
+    }
+    if (!privileged || !task.assigneeId) {
+      return false;
+    }
+    const assigneeRole = directory?.find(
+      (u) => u.id === task.assigneeId,
+    )?.role;
+    return assigneeRole ? outranks(user.role, assigneeRole) : false;
+  }, [editing, task, user, privileged, directory]);
 
   const form = useForm<FormValues>({
     initialValues: {
@@ -86,7 +109,11 @@ export function TaskModal({
   }, [opened, task, defaultDate]);
 
   const assigneeOptions =
-    users?.map((u) => ({ value: u.id, label: u.name })) ?? [];
+    assignableUsers?.map((u) => ({ value: u.id, label: u.name })) ?? [];
+
+  // Show the assignee picker on create for privileged actors (who may assign to
+  // others), and on edit whenever this actor may reassign the task.
+  const showAssignee = editing ? canReassign : privileged;
 
   const handleSubmit = form.onSubmit(async (values) => {
     try {
@@ -99,6 +126,17 @@ export function TaskModal({
             dueDate: toIso(values.dueDate),
           },
         });
+        // Reassignment is a separate, authorized call; only when it changed.
+        if (
+          canReassign &&
+          values.assigneeId &&
+          values.assigneeId !== task.assigneeId
+        ) {
+          await reassignTask.mutateAsync({
+            id: task.id,
+            assigneeId: values.assigneeId,
+          });
+        }
         notifications.show({ color: 'green', message: 'Tarea actualizada.' });
       } else {
         await createTask.mutateAsync({
@@ -150,13 +188,14 @@ export function TaskModal({
             valueFormat="DD/MM/YYYY"
             {...form.getInputProps('dueDate')}
           />
-          {privileged && !editing && (
+          {showAssignee && (
             <Select
-              label="Asignar a"
+              label={editing ? 'Reasignar a' : 'Asignar a'}
               placeholder="Elegí un usuario"
               data={assigneeOptions}
               searchable
-              clearable
+              // On edit, reassignment always needs a target, so it is not clearable.
+              clearable={!editing}
               {...form.getInputProps('assigneeId')}
             />
           )}
@@ -166,7 +205,11 @@ export function TaskModal({
             </Button>
             <Button
               type="submit"
-              loading={createTask.isPending || editTask.isPending}
+              loading={
+                createTask.isPending ||
+                editTask.isPending ||
+                reassignTask.isPending
+              }
             >
               {editing ? 'Guardar' : 'Crear'}
             </Button>
