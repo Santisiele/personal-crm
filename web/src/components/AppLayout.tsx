@@ -16,6 +16,7 @@ import { useDisclosure } from '@mantine/hooks';
 import {
   IconAddressBook,
   IconBuilding,
+  IconActivity,
   IconCalendar,
   IconChecklist,
   IconInbox,
@@ -47,6 +48,12 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/contacts', label: 'Contactos', icon: IconAddressBook },
   { to: '/companies', label: 'Empresas', icon: IconBuilding },
   { to: '/users', label: 'Usuarios', icon: IconUsers, privileged: true },
+  {
+    to: '/activity',
+    label: 'Actividad',
+    icon: IconActivity,
+    privileged: true,
+  },
   {
     to: '/company-statuses',
     label: 'Estados de empresa',

@@ -2,7 +2,7 @@
 // Spanish translation of those technical keys for display. Free-form data (e.g.
 // company status descriptions) is shown verbatim and never translated.
 
-import type { TaskStatus, UserRole } from '@/api/types';
+import type { AssignmentStatus, TaskStatus, UserRole } from '@/api/types';
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   PENDING: 'Pendiente',
@@ -43,3 +43,15 @@ export const ACTIVITY_ACTION_LABELS: Record<string, string> = {
 export function actionLabel(actionType: string): string {
   return ACTIVITY_ACTION_LABELS[actionType] ?? actionType;
 }
+
+export const ASSIGNMENT_STATUS_LABELS: Record<AssignmentStatus, string> = {
+  PENDING: 'Pendiente',
+  ACCEPTED: 'Aceptada',
+  REJECTED: 'Rechazada',
+};
+
+export const ASSIGNMENT_STATUS_COLORS: Record<AssignmentStatus, string> = {
+  PENDING: 'orange',
+  ACCEPTED: 'green',
+  REJECTED: 'red',
+};

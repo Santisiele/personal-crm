@@ -15,10 +15,18 @@ import {
 import { DatePickerInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
-import { IconActivity } from '@tabler/icons-react';
+import { IconActivity, IconUserShare } from '@tabler/icons-react';
 import type { Task } from '@/api/types';
+import { useAuth } from '@/auth/AuthContext';
 import { useActivities, useLogActivity } from '@/hooks/useActivities';
-import { ACTIVITY_ACTION_TYPES, actionLabel } from '@/labels';
+import { useAssignmentHistory } from '@/hooks/useAssignments';
+import { useUserNames } from '@/hooks/useUsers';
+import {
+  ACTIVITY_ACTION_TYPES,
+  ASSIGNMENT_STATUS_COLORS,
+  ASSIGNMENT_STATUS_LABELS,
+  actionLabel,
+} from '@/labels';
 
 interface TaskActivityDrawerProps {
   task: Task | null;
@@ -43,10 +51,15 @@ export function TaskActivityDrawer({
   opened,
   onClose,
 }: TaskActivityDrawerProps) {
-  const { data: activities, isLoading } = useActivities(
-    opened ? (task?.id ?? null) : null,
-  );
+  const { user } = useAuth();
+  const taskId = opened ? (task?.id ?? null) : null;
+  const { data: activities, isLoading } = useActivities(taskId);
+  const { data: history } = useAssignmentHistory(taskId);
+  const names = useUserNames();
   const logActivity = useLogActivity(task?.id ?? '');
+
+  const personName = (id: string) =>
+    id === user?.id ? 'vos' : (names.get(id) ?? `#${id}`);
 
   const form = useForm({
     initialValues: {
@@ -82,9 +95,7 @@ export function TaskActivityDrawer({
       onClose={onClose}
       position="right"
       size="md"
-      title={
-        <Text fw={600}>Actividad · {task?.title ?? ''}</Text>
-      }
+      title={<Text fw={600}>{task?.title ?? ''}</Text>}
     >
       <Stack>
         <Card withBorder padding="md">
@@ -123,7 +134,7 @@ export function TaskActivityDrawer({
           </form>
         </Card>
 
-        <Divider label="Historial" labelPosition="center" />
+        <Divider label="Actividad" labelPosition="center" />
 
         {isLoading ? (
           <Loader size="sm" />
@@ -139,11 +150,16 @@ export function TaskActivityDrawer({
                 bullet={<IconActivity size={12} />}
                 title={actionLabel(activity.actionType)}
               >
-                <Group gap="xs">
+                {activity.description && (
+                  <Text size="sm">{activity.description}</Text>
+                )}
+                <Group gap="xs" mt={2}>
                   <Text size="xs" c="dimmed">
                     {new Date(
                       `${activity.activityDate}T00:00:00`,
                     ).toLocaleDateString('es-AR')}
+                    {' · '}
+                    {personName(activity.authorId)}
                   </Text>
                   <Badge size="xs" variant="light">
                     {activity.status}
@@ -152,6 +168,38 @@ export function TaskActivityDrawer({
               </Timeline.Item>
             ))}
           </Timeline>
+        )}
+
+        {history && history.length > 0 && (
+          <>
+            <Divider label="Historial de asignaciones" labelPosition="center" />
+            <Timeline active={-1} bulletSize={22} lineWidth={2}>
+              {history.map((assignment) => (
+                <Timeline.Item
+                  key={assignment.id}
+                  bullet={<IconUserShare size={12} />}
+                  title={personName(assignment.assigneeId)}
+                >
+                  <Group gap="xs" mt={2}>
+                    <Text size="xs" c="dimmed">
+                      {new Date(assignment.assignedAt).toLocaleDateString(
+                        'es-AR',
+                      )}
+                      {' · asignó '}
+                      {personName(assignment.assignedById)}
+                    </Text>
+                    <Badge
+                      size="xs"
+                      variant="light"
+                      color={ASSIGNMENT_STATUS_COLORS[assignment.status]}
+                    >
+                      {ASSIGNMENT_STATUS_LABELS[assignment.status]}
+                    </Badge>
+                  </Group>
+                </Timeline.Item>
+              ))}
+            </Timeline>
+          </>
         )}
       </Stack>
     </Drawer>

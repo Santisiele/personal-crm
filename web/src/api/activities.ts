@@ -1,6 +1,12 @@
 import { api } from '@/api/client';
 import type { LogActivityInput, TaskActivity } from '@/api/types';
 
+/** The global activity feed across all tasks (ADMIN/CREATOR only). */
+export async function listAllActivity(): Promise<TaskActivity[]> {
+  const { data } = await api.get<TaskActivity[]>('/activities');
+  return data;
+}
+
 /** Reads a task's activity log, most-recent first (owner or privileged only). */
 export async function listActivities(
   taskId: string,

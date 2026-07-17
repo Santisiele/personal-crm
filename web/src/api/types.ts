@@ -116,9 +116,13 @@ export interface CompanyStatus {
 export interface TaskActivity {
   id: string;
   taskId: string;
+  authorId: string;
   actionType: string;
   status: string;
   activityDate: string;
+  description: string | null;
+  nextAction: string | null;
+  nextActionDate: string | null;
 }
 
 export interface LogActivityInput {

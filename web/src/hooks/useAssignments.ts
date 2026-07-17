@@ -5,6 +5,7 @@ import {
 } from '@tanstack/react-query';
 import {
   acceptAssignment,
+  listAssignmentHistory,
   listMyPendingAssignments,
   rejectAssignment,
 } from '@/api/assignments';
@@ -15,6 +16,14 @@ export function usePendingAssignments() {
   return useQuery({
     queryKey: PENDING_KEY,
     queryFn: listMyPendingAssignments,
+  });
+}
+
+export function useAssignmentHistory(taskId: string | null) {
+  return useQuery({
+    queryKey: ['assignments', 'history', taskId],
+    queryFn: () => listAssignmentHistory(taskId!),
+    enabled: Boolean(taskId),
   });
 }
 

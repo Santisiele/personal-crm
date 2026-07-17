@@ -7,6 +7,16 @@ export async function listMyPendingAssignments(): Promise<TaskAssignment[]> {
   return data;
 }
 
+/** A task's full assignment history, most-recent first (owner or privileged). */
+export async function listAssignmentHistory(
+  taskId: string,
+): Promise<TaskAssignment[]> {
+  const { data } = await api.get<TaskAssignment[]>(
+    `/tasks/${taskId}/assignments`,
+  );
+  return data;
+}
+
 export async function acceptAssignment(
   taskId: string,
   assignmentId: string,

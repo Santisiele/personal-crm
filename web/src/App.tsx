@@ -11,6 +11,7 @@ import { CalendarPage } from '@/pages/CalendarPage';
 import { TasksPage } from '@/pages/TasksPage';
 import { KanbanPage } from '@/pages/KanbanPage';
 import { InboxPage } from '@/pages/InboxPage';
+import { ActivityFeedPage } from '@/pages/ActivityFeedPage';
 import { ContactsPage } from '@/pages/ContactsPage';
 import { CompaniesPage } from '@/pages/CompaniesPage';
 import { CompanyDetailPage } from '@/pages/CompanyDetailPage';
@@ -37,6 +38,7 @@ export function App() {
 
           <Route element={<RequirePrivileged />}>
             <Route path="users" element={<UsersPage />} />
+            <Route path="activity" element={<ActivityFeedPage />} />
           </Route>
           <Route element={<RequireCreator />}>
             <Route path="company-statuses" element={<CompanyStatusesPage />} />
