@@ -1,5 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
   ApiResponse,
@@ -8,6 +16,9 @@ import {
 import { Login } from '@/auth/login.use-case';
 import { RefreshAccessToken } from '@/auth/refresh-access-token.use-case';
 import { Public } from '@/auth/public.decorator';
+import { CurrentActor } from '@/auth/current-actor.decorator';
+import type { Actor } from '@/shared/domain/actor';
+import { ViewUser } from '@/users/application/view-user.use-case';
 import { LoginDto } from '@/auth/dto/login.dto';
 import { RefreshDto } from '@/auth/dto/refresh.dto';
 
@@ -17,6 +28,7 @@ export class AuthController {
   constructor(
     private readonly loginUser: Login,
     private readonly refreshAccessToken: RefreshAccessToken,
+    private readonly viewUser: ViewUser,
   ) {}
 
   @Public()
@@ -50,5 +62,19 @@ export class AuthController {
     return {
       accessToken: await this.refreshAccessToken.execute(body),
     };
+  }
+
+  @Get('me')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Return the authenticated user (id, name, role)' })
+  @ApiOkResponse({
+    description:
+      "The current user's safe view, resolved from the access token.",
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  async me(@CurrentActor() actor: Actor) {
+    // A user may always view themselves, so this reuses ViewUser rather than
+    // re-deriving a projection. It surfaces the name the token does not carry.
+    return this.viewUser.execute({ actor, userId: actor.id });
   }
 }
