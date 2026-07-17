@@ -2,6 +2,8 @@
 
 Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitectura hexagonal (ports & adapters)** y **BDD ejecutable** (jest-cucumber). Este README es el documento de contexto del proyecto: resume las reglas, decisiones de diseño y el estado actual para retomar el trabajo.
 
+> **Monolito con frontend.** El repo incluye además un **frontend React + TypeScript** en [`web/`](web/) (Vite + Mantine + FullCalendar) que consume esta API. En producción el propio Nest lo sirve como estático bajo **`/app`**, así que un solo proceso expone la API (en la raíz) y la SPA (en `/app`). Ver [Frontend (`web/`)](#frontend-web) y [`web/README.md`](web/README.md).
+
 ---
 
 ## Stack
@@ -58,7 +60,7 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 - **Endpoints** (`UsersController`):
   - `POST /users` — crear usuario (`CreateUserDto`).
   - `PATCH /users/me/password` — cambiar la propia contraseña (userId sale del `Actor`).
-  - `PATCH /users/:id/role` — cambiar el rol.
+  - `PATCH /users/:id/role` — cambiar el rol; **autorizado por jerarquía** (`UserAccessPolicy.canAssignRole`). El **CREATOR** asigna cualquier rol; un **ADMIN** está confinado a usuarios comunes y no puede otorgar por encima de `USER` (no puede crear un par ni degradar a un superior); cualquier otro caso (incluido un `USER` sobre sí mismo) → `403`. `404` si el usuario no existe. El controller pasa el `Actor` al caso de uso, que carga el target (su rol actual es parte de la decisión) antes de chequear la política.
   - `GET /users` — listar usuarios; **solo privilegiado** (ADMIN/CREATOR), si no `403`. Devuelve `UserView[]`.
   - `GET /users/:id` — ver un usuario; **privilegiado o el propio usuario**, si no `403`; `404` si no existe. Devuelve `UserView`.
   - `DELETE /users/:id` — **baja lógica** (deactivate); **solo privilegiado** (ADMIN/CREATOR), si no `403`; `404` si no existe; `204` si ok. Setea `deleted_at`/`deleted_by`: el usuario **deja de aparecer** en `GET /users` y no puede loguear (`findByName` lo omite), pero **sigue siendo visible por id** (`findById` lo resuelve) para que las referencias históricas (p. ej. tareas que creó) sigan viéndose. Nunca borra la fila.
@@ -74,9 +76,10 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 - **Casos de uso**: `CreateTask`, `ViewTask`, `ReassignTask`, `ArchiveTask`, `ChangeTaskStatus`, `ListTasks`.
 - **Adaptadores**: `InMemoryTaskRepository` (asigna identidad con un contador), `PrismaTaskRepository`. El adaptador Prisma mapea `dueDate ↔ task.due_date`, `companyId ↔ task.company_id` (nullable) y `status ↔ task.status_id` resuelto por `task_status.description` (con fallback al status de menor id si la descripción no está seedeada). `findAll` filtra `deleted_at: null` + `company_id` en SQL y el `assigneeId` sobre el read model (vive en `task_assignment`).
 - **Endpoints** (`TasksController`):
-  - `POST /tasks` — crear tarea (`CreateTaskDto`: `title`, `description`, `assigneeId?`, `dueDate?`, `companyId?`). Omitir `assigneeId` → para uno mismo; `null` → sin asignar (solo privilegiados); un id → a ese usuario (solo privilegiados, salvo que sea uno mismo). `dueDate` se valida como fecha ISO; `companyId` se guarda tal cual (no se valida contra el contexto `companies`). Devuelve también `dueDate`, `companyId` y `status`.
+  - `POST /tasks` — crear tarea (`CreateTaskDto`: `title`, `description`, `assigneeId?`, `dueDate?`, `companyId?`). Omitir `assigneeId` → para uno mismo; `null` → sin asignar (solo privilegiados); un id → a ese usuario (solo privilegiados, salvo que sea uno mismo). `dueDate` se valida como fecha ISO; `companyId` se guarda tal cual (no se valida contra el contexto `companies`). La respuesta incluye `title`, `description`, `dueDate`, `companyId` y `status`.
   - `GET /tasks` — listar las tareas visibles del actor (dueño o asignado; privilegiados ven todas), excluyendo archivadas. Filtros opcionales `?assigneeId=` y `?companyId=` (`ListTasksQueryDto`).
-  - `GET /tasks/:id` — ver tarea (autorizado por rol/ownership). Devuelve `dueDate`, `companyId` y `status`.
+  - `GET /tasks/:id` — ver tarea (autorizado por rol/ownership). Devuelve `title`, `description`, `dueDate`, `companyId` y `status`.
+  - `PATCH /tasks/:id` — **editar contenido** (`EditTaskDto`: `title?`, `description?`, `dueDate?`). Edición **parcial** (omitir un campo lo deja igual; `dueDate: null` lo limpia). Dueño, asignado o privilegiado (`TaskAccessPolicy.canEdit`); `403` si no; `404` si no existe/archivada. Es lo que habilita **reprogramar una tarea moviéndola en el calendario**. El agregado gana `edit()` (sus `title`/`description`/`dueDate` pasan a privados con getters) y el repositorio `update()`, distinto de `save()` cuya rama con id es la reasignación.
   - `PATCH /tasks/:id/assignee` — reasignar (`ReassignTaskDto`, solo el dueño).
   - `PATCH /tasks/:id/status` — transicionar el estado (`ChangeTaskStatusDto`: `status` ∈ `TaskStatus`). Dueño, asignado o privilegiado; 404 si no existe/archivada, 403 si no autorizado.
   - `POST /tasks/:id/archive` — archivar (borrado lógico, `ArchiveTaskDto`: `reason`). Setea `deleted_at`/`deleted_by` y registra la razón como un `task_activity` cuyo `activity_status` ('DELETED') la marca como borrado. La tarea archivada **deja de aparecer** en `findById`/`findAll` (ver/reasignar/cambiar estado/listar la omiten). Dueño o privilegiado.
@@ -141,13 +144,29 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
 - `src/shared/domain/actor.ts` — **`Actor`** (`{ id, role }`), kernel compartido entre contextos.
 - `src/shared/domain/domain-error.ts` — jerarquía `DomainError` → `NotFoundError` / `AuthenticationError` / `AuthorizationError` / `ConflictError` (usa `new.target.name`).
 - `src/common/filters/domain-exception.filter.ts` — `DomainExceptionFilter` global: mapea **por categoría** (`NotFoundError`→404, `AuthenticationError`→401, `AuthorizationError`→403, `ConflictError`→409). Los controllers **no hacen try/catch**.
-- `src/auth/` — **autenticación JWT real con access + refresh**. `POST /auth/login` (público) busca el usuario por `name`, verifica la contraseña (`ScryptPasswordHasher`) y emite un **par de tokens**: un **access token** corto (`exp` 1h por defecto) y un **refresh token** largo (7d por defecto), ambos firmados con `jsonwebtoken` y distinguidos por un claim `purpose` (`access`/`refresh`). El puerto `TokenIssuer` ahora **emite y verifica** ambos (`issueAccessToken`/`issueRefreshToken`/`verifyAccessToken`/`verifyRefreshToken`); el adaptador `JwtTokenIssuer` traduce cualquier fallo (expirado, manipulado, de tipo equivocado) a un `InvalidTokenError` (`AuthenticationError` → 401). `POST /auth/refresh` (público) valida un refresh token y emite un access token fresco vía el caso de uso framework-free `RefreshAccessToken` (cableado con `useFactory`). Un **guard global** (`JwtAuthGuard` vía `APP_GUARD`) verifica el Bearer **a través del puerto** (no `jsonwebtoken` directo) y setea `request.user`; un token faltante/expirado/inválido da 401. Rutas públicas con `@Public()` (`POST /auth/login`, `POST /auth/refresh`, `POST /users`, `GET /`); **el resto exige token**. TTLs configurables vía `JWT_ACCESS_TTL_SECONDS`/`JWT_REFRESH_TTL_SECONDS`. `UserRepository` ganó `findByName`; `name` es **único** (índice en DB), así que identifica sin ambigüedad.
+- `src/auth/` — **autenticación JWT real con access + refresh**. `POST /auth/login` (público) busca el usuario por `name`, verifica la contraseña (`ScryptPasswordHasher`) y emite un **par de tokens**: un **access token** corto (`exp` 1h por defecto) y un **refresh token** largo (7d por defecto), ambos firmados con `jsonwebtoken` y distinguidos por un claim `purpose` (`access`/`refresh`). El puerto `TokenIssuer` ahora **emite y verifica** ambos (`issueAccessToken`/`issueRefreshToken`/`verifyAccessToken`/`verifyRefreshToken`); el adaptador `JwtTokenIssuer` traduce cualquier fallo (expirado, manipulado, de tipo equivocado) a un `InvalidTokenError` (`AuthenticationError` → 401). `POST /auth/refresh` (público) valida un refresh token y emite un access token fresco vía el caso de uso framework-free `RefreshAccessToken` (cableado con `useFactory`). `GET /auth/me` (autenticado) devuelve la vista segura del usuario actual (`{ id, name, role }`) reusando `ViewUser` (un usuario siempre puede verse a sí mismo), para que el front tenga el nombre que el token no lleva. Un **guard global** (`JwtAuthGuard` vía `APP_GUARD`) verifica el Bearer **a través del puerto** (no `jsonwebtoken` directo) y setea `request.user`; un token faltante/expirado/inválido da 401. Rutas públicas con `@Public()` (`POST /auth/login`, `POST /auth/refresh`, `POST /users`, `GET /`); **el resto exige token**. TTLs configurables vía `JWT_ACCESS_TTL_SECONDS`/`JWT_REFRESH_TTL_SECONDS`. `UserRepository` ganó `findByName`; `name` es **único** (índice en DB), así que identifica sin ambigüedad.
 
 ### Configuración transversal (`AppModule`)
 - `APP_FILTER` → `DomainExceptionFilter`.
 - `APP_PIPE` → `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })`.
 - `PrismaModule` es `@Global` y exporta `PrismaService` (extiende `PrismaClient`).
 - **Swagger/OpenAPI**: en `main.ts` se monta `SwaggerModule` en **`/docs`** con un esquema Bearer JWT global (`access-token`) y `persistAuthorization`. El **CLI plugin** de `@nestjs/swagger` (`nest-cli.json`, `introspectComments: true`) infiere los schemas de los DTOs desde class-validator + JSDoc, así los DTOs quedan documentados sin decorar a mano; los controllers llevan `@ApiTags`/`@ApiOperation`/`@ApiResponse`/`@ApiBearerAuth`. Las 4 rutas `@Public()` (`GET /`, login, refresh, `POST /users`) quedan sin auth.
+
+---
+
+## Frontend (`web/`)
+
+SPA en **React 18 + TypeScript** (Vite), **Mantine** para UI y **FullCalendar** para el calendario, con **TanStack Query** para el estado del servidor. Consume esta API; la doc completa está en [`web/README.md`](web/README.md). Resumen de decisiones:
+
+- **Monolito.** En prod, `main.ts` sirve `web/dist` como estático bajo **`/app`** vía `useStaticAssets` de `platform-express` (no `ServeStaticModule`, que no resolvía `ApplicationConfig` bajo pnpm). La API mantiene la raíz, así que las rutas de cliente no colisionan con las de la API. La SPA usa **hash routing** (`/app/#/...`), por lo que el server solo sirve `index.html` en `/app/` y **no hace falta fallback de deep-links**.
+- **CORS.** `main.ts` hace `enableCors` para que el navegador (el dev server de Vite en otro origen, o mismo origen en prod) pueda mandar el header `Authorization`. Orígenes configurables con `CORS_ORIGIN`.
+- **Carga de `.env`.** `main.ts` importa `dotenv/config` **antes** de que nada lea `process.env` (`PrismaService` resuelve `DATABASE_URL` al construirse). Antes no se cargaba y las queries fallaban con un error SASL. `dotenv` pasó a `dependencies`.
+- **Auth en el cliente.** Interceptor de Axios que adjunta el access token y, ante un `401`, canjea el refresh token en `POST /auth/refresh` (single-flight) y reintenta; si el refresh falla, cierra la sesión. Un contexto de React expone el usuario (`GET /auth/me`) y guards de ruta por rol.
+- **Calendario.** Vistas mes/semana; click para crear, click en evento para editar, y **drag para reprogramar** (`PATCH /tasks/:id`). Las tareas se colorean **por persona** (color determinístico por id); los privilegiados ven las tareas de todo el equipo con leyenda de nombres y un toggle dueño/asignado.
+- **Gestión de usuarios y permisos.** Directorio, asignación de roles (**solo CREATOR**, espejando la regla de la API), alta y baja lógica. Más dashboard con métricas (vencidas/hoy/en progreso/completadas) y cambio de la propia contraseña.
+- **i18n.** Las claves técnicas de la API (estados, roles) se traducen a español **solo para mostrar** (`web/src/labels.ts`); los datos libres se muestran tal cual. Mismo criterio que el backend (API en inglés, traducción en el front).
+
+El backend excluye `web/` de su `tsconfig` para que el compilador de Nest no toque el front.
 
 ---
 
@@ -202,6 +221,18 @@ pnpm run format     # prettier --write
 pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 ```
 
+**Frontend** (`web/`, ver [`web/README.md`](web/README.md)):
+
+```bash
+cd web
+pnpm install
+cp .env.example .env   # VITE_API_URL=http://localhost:3000 en dev
+pnpm dev               # dev server en http://localhost:5173/app/
+pnpm build             # tsc --noEmit && vite build (output a web/dist/)
+```
+
+Para el **monolito en prod**: `cd web && pnpm build` y luego `pnpm start:prod` desde la raíz — Nest sirve la SPA en `http://localhost:3000/app/` y la API en la raíz. En dev se corren los dos procesos (Nest `start:dev` + Vite `dev`) y la SPA pega a la API vía `VITE_API_URL` con CORS.
+
 ---
 
 ## Próximos pasos / deuda conocida
@@ -219,6 +250,8 @@ pnpm run lint       # eslint --fix  (limpio: 0 errores / 0 warnings)
 - **e2e**: cubre `GET /`, tareas (crear/ver/reasignar/archivar/estado/listar), `users` (password/rol + directorio + baja lógica), `contacts` (alta/lista/detalle/edición/baja lógica), `companies` (alta/lista/detalle/edición/estado/baja lógica) y el vínculo contacto↔empresa, las **actividades de tarea** (loguear 201/403 y leer el log 200 most-recent first / 403), el **historial de asignaciones** (`test/task-assignments.e2e-spec.ts`: GET historial 200/403/404, accept/reject 200/403/404) y el **ciclo de tokens de auth** (`test/auth.e2e-spec.ts`: login con par access/refresh, `POST /auth/refresh`, 401 de tokens expirados/manipulados/inválidos). Todo contra la DB real y self-cleaning con sufijo único por corrida.
 - **Lookups del archivado**: el adaptador resuelve `activity_status='DELETED'` y `action_type='ARCHIVE'` por descripción y falla si faltan (hay que seedearlos). Cuando se modele `task_activity` en serio, formalizar estos lookups.
 - **Lookups de `assignment_status`**: el contexto `task-assignments` resuelve `assignment_status` por descripción (`PENDING`/`ACCEPTED`/`REJECTED`). Conviene **seedear** esas tres filas. Al crear una asignación, si la descripción falta cae al `assignment_status` de menor id (mismo default que el adaptador de `tasks`), pero **accept/reject necesitan que `ACCEPTED`/`REJECTED` existan** para reflejar el estado correcto.
+- **Edición de tareas** (implementado): `PATCH /tasks/:id` edita `title`/`description`/`dueDate` (parcial). Habilita el drag-para-reprogramar del calendario. Ver la sección de `tasks`.
+- **⚠️ Escalada de privilegios vía registro (pendiente)**: `POST /users` es `@Public()` y **acepta cualquier `role`**, así que hoy cualquiera puede registrarse directamente como `CREATOR`. El fix de `PATCH /users/:id/role` cerró la escalada por cambio de rol, **pero no la del alta**. El front fuerza `role: USER` en el auto-registro, pero eso es defensa en el cliente, no en la API. Conviene, arrancando de un escenario: o bien forzar `USER` en el registro público y mover la creación con rol a un endpoint autenticado (gateado por `canAssignRole`), o bien exigir un actor privilegiado para elegir rol. **Recomendado hacerlo antes de cualquier uso real.**
 
 ### Autorización por rol en creación (implementado)
 Regla: *cualquiera crea una task asignada a sí mismo; solo privilegiados (ADMIN/CREATOR) la asignan a otro o la dejan sin asignar.*
