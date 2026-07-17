@@ -228,4 +228,35 @@ describe('Task assignments (e2e)', () => {
         .expect(404);
     });
   });
+
+  describe('my pending assignments (inbox)', () => {
+    const pendingIds = async (token: string): Promise<string[]> => {
+      const res = await request(app.getHttpServer())
+        .get('/me/assignments/pending')
+        .set(bearer(token))
+        .expect(200);
+      return (res.body as Array<{ id: string }>).map((a) => a.id);
+    };
+
+    it("lists the assignee's pending assignment and drops it once accepted", async () => {
+      const taskId = await createAssignedTask(assigneeId);
+      const res = await request(app.getHttpServer())
+        .get(`/tasks/${taskId}/assignments`)
+        .set(bearer(adminToken))
+        .expect(200);
+      const assignmentId = (res.body as Array<{ id: string }>)[0].id;
+
+      // The assignee sees it as pending; another user does not.
+      expect(await pendingIds(assigneeToken)).toContain(assignmentId);
+      expect(await pendingIds(otherToken)).not.toContain(assignmentId);
+
+      await request(app.getHttpServer())
+        .post(`/tasks/${taskId}/assignments/${assignmentId}/accept`)
+        .set(bearer(assigneeToken))
+        .expect(200);
+
+      // Accepted assignments leave the pending inbox.
+      expect(await pendingIds(assigneeToken)).not.toContain(assignmentId);
+    });
+  });
 });
