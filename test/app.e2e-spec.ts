@@ -431,11 +431,9 @@ describe('App (e2e)', () => {
       expect(after.user_password_hash).not.toBe(before.user_password_hash);
     });
 
-    it("changes a user's role (204)", async () => {
+    it("lets a creator change a user's role (204)", async () => {
       const userId = await createUser(`E2E Promote ${RUN}`, 'USER');
 
-      // Assigning roles is the CREATOR's prerogative; an ADMIN cannot mint
-      // another ADMIN (see role_assignment.feature).
       await request(app.getHttpServer())
         .patch(`/users/${userId}/role`)
         .set(bearer(creatorToken))
@@ -447,6 +445,43 @@ describe('App (e2e)', () => {
         include: { user_role: true },
       });
       expect(updated.user_role.description).toBe('ADMIN');
+    });
+
+    it('lets an admin promote a user to admin (204)', async () => {
+      // An ADMIN manages the ordinary team (USER <-> ADMIN).
+      const userId = await createUser(`E2E Admin Promote ${RUN}`, 'USER');
+
+      await request(app.getHttpServer())
+        .patch(`/users/${userId}/role`)
+        .set(bearer(adminToken))
+        .send({ role: 'ADMIN' })
+        .expect(204);
+
+      const updated = await prisma.app_user.findUniqueOrThrow({
+        where: { id: BigInt(userId) },
+        include: { user_role: true },
+      });
+      expect(updated.user_role.description).toBe('ADMIN');
+    });
+
+    it('forbids an admin from granting the creator role (403)', async () => {
+      const userId = await createUser(`E2E Admin NoCreator ${RUN}`, 'USER');
+
+      await request(app.getHttpServer())
+        .patch(`/users/${userId}/role`)
+        .set(bearer(adminToken))
+        .send({ role: 'CREATOR' })
+        .expect(403);
+    });
+
+    it('forbids an admin from demoting a creator (403)', async () => {
+      const creatorId = await createUser(`E2E Admin NoTouch ${RUN}`, 'CREATOR');
+
+      await request(app.getHttpServer())
+        .patch(`/users/${creatorId}/role`)
+        .set(bearer(adminToken))
+        .send({ role: 'USER' })
+        .expect(403);
     });
 
     it('rejects creating a user whose name is already taken (409)', async () => {
