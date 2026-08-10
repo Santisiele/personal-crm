@@ -10,12 +10,13 @@ import {
   Stack,
   Text,
   Textarea,
+  TextInput,
   Timeline,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
-import { IconActivity, IconUserShare } from '@tabler/icons-react';
+import { IconActivity, IconArrowRight, IconUserShare } from '@tabler/icons-react';
 import type { Task } from '@/api/types';
 import { useAuth } from '@/auth/AuthContext';
 import { useActivities, useLogActivity } from '@/hooks/useActivities';
@@ -46,6 +47,10 @@ function toIso(date: Date | null): string {
   return date ? date.toISOString().slice(0, 10) : todayIso();
 }
 
+function formatDate(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('es-AR');
+}
+
 export function TaskActivityDrawer({
   task,
   opened,
@@ -66,6 +71,8 @@ export function TaskActivityDrawer({
       actionType: 'NOTE',
       description: '',
       activityDate: new Date() as Date | null,
+      nextAction: '',
+      nextActionDate: null as Date | null,
     },
   });
 
@@ -73,11 +80,15 @@ export function TaskActivityDrawer({
     try {
       await logActivity.mutateAsync({
         actionType: values.actionType,
-        // activity_status seeds DONE as the "completed" marker; the log records
-        // things that happened, so a logged activity is DONE.
+        // activity_status marks a logged activity as recorded; kept internal
+        // (not shown in the UI).
         status: 'DONE',
         activityDate: toIso(values.activityDate),
         description: values.description.trim() || undefined,
+        nextAction: values.nextAction.trim() || undefined,
+        nextActionDate: values.nextActionDate
+          ? toIso(values.nextActionDate)
+          : undefined,
       });
       notifications.show({ color: 'green', message: 'Actividad registrada.' });
       form.reset();
@@ -125,6 +136,23 @@ export function TaskActivityDrawer({
                 minRows={2}
                 {...form.getInputProps('description')}
               />
+              <Divider
+                variant="dashed"
+                label="Próximo paso"
+                labelPosition="left"
+              />
+              <TextInput
+                label="Qué hacer"
+                placeholder="La próxima acción (opcional)"
+                {...form.getInputProps('nextAction')}
+              />
+              <DatePickerInput
+                label="Fecha del próximo paso"
+                placeholder="opcional"
+                clearable
+                valueFormat="DD/MM/YYYY"
+                {...form.getInputProps('nextActionDate')}
+              />
               <Group justify="flex-end">
                 <Button type="submit" size="xs" loading={logActivity.isPending}>
                   Registrar
@@ -153,18 +181,27 @@ export function TaskActivityDrawer({
                 {activity.description && (
                   <Text size="sm">{activity.description}</Text>
                 )}
-                <Group gap="xs" mt={2}>
-                  <Text size="xs" c="dimmed">
-                    {new Date(
-                      `${activity.activityDate}T00:00:00`,
-                    ).toLocaleDateString('es-AR')}
-                    {' · '}
-                    {personName(activity.authorId)}
-                  </Text>
-                  <Badge size="xs" variant="light">
-                    {activity.status}
-                  </Badge>
-                </Group>
+                {activity.nextAction && (
+                  <Group gap={4} wrap="nowrap" align="flex-start" mt={4}>
+                    <IconArrowRight
+                      size={14}
+                      style={{ marginTop: 3, flexShrink: 0 }}
+                    />
+                    <Text size="sm">
+                      {activity.nextAction}
+                      {activity.nextActionDate && (
+                        <Text span c="dimmed">
+                          {' '}
+                          · {formatDate(activity.nextActionDate)}
+                        </Text>
+                      )}
+                    </Text>
+                  </Group>
+                )}
+                <Text size="xs" c="dimmed" mt={2}>
+                  {formatDate(activity.activityDate)} ·{' '}
+                  {personName(activity.authorId)}
+                </Text>
               </Timeline.Item>
             ))}
           </Timeline>

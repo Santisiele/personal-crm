@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import {
-  Badge,
   Card,
   Group,
   Loader,
@@ -9,7 +8,7 @@ import {
   Timeline,
   Title,
 } from '@mantine/core';
-import { IconActivity } from '@tabler/icons-react';
+import { IconActivity, IconArrowRight } from '@tabler/icons-react';
 import { useAllActivity } from '@/hooks/useActivities';
 import { useTasks } from '@/hooks/useTasks';
 import { useUserNames } from '@/hooks/useUsers';
@@ -70,18 +69,33 @@ export function ActivityFeedPage() {
                 {activity.description && (
                   <Text size="sm">{activity.description}</Text>
                 )}
-                <Group gap="xs" mt={2}>
-                  <Text size="xs" c="dimmed">
-                    {new Date(
-                      `${activity.activityDate}T00:00:00`,
-                    ).toLocaleDateString('es-AR')}
-                    {' · '}
-                    {names.get(activity.authorId) ?? `#${activity.authorId}`}
-                  </Text>
-                  <Badge size="xs" variant="light">
-                    {activity.status}
-                  </Badge>
-                </Group>
+                {activity.nextAction && (
+                  <Group gap={4} wrap="nowrap" align="flex-start" mt={4}>
+                    <IconArrowRight
+                      size={14}
+                      style={{ marginTop: 3, flexShrink: 0 }}
+                    />
+                    <Text size="sm">
+                      {activity.nextAction}
+                      {activity.nextActionDate && (
+                        <Text span c="dimmed">
+                          {' '}
+                          ·{' '}
+                          {new Date(
+                            `${activity.nextActionDate}T00:00:00`,
+                          ).toLocaleDateString('es-AR')}
+                        </Text>
+                      )}
+                    </Text>
+                  </Group>
+                )}
+                <Text size="xs" c="dimmed" mt={2}>
+                  {new Date(
+                    `${activity.activityDate}T00:00:00`,
+                  ).toLocaleDateString('es-AR')}
+                  {' · '}
+                  {names.get(activity.authorId) ?? `#${activity.authorId}`}
+                </Text>
               </Timeline.Item>
             ))}
           </Timeline>
