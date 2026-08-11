@@ -20,7 +20,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentActor } from '@/auth/current-actor.decorator';
-import { Public } from '@/auth/public.decorator';
 import type { Actor } from '@/shared/domain/actor';
 import { CreateUser } from '@/users/application/create-user.use-case';
 import { ChangePassword } from '@/users/application/change-password.use-case';
@@ -46,10 +45,10 @@ export class UsersController {
     private readonly viewUser: ViewUser,
   ) {}
 
-  @Public()
   @Post()
+  @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Register a new user (always a plain USER; role is not accepted)',
+    summary: 'Create a user (privileged only; always a plain USER)',
   })
   @ApiCreatedResponse({
     description: 'User created; returns id, name and role (always USER).',
@@ -58,14 +57,21 @@ export class UsersController {
     status: 400,
     description: 'Validation failed (e.g. a role was supplied).',
   })
+  @ApiResponse({ status: 401, description: 'Missing or invalid access token.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Actor is not privileged (ADMIN/CREATOR).',
+  })
   @ApiResponse({
     status: 409,
     description: 'A user with that name already exists.',
   })
-  async create(@Body() body: CreateUserDto) {
-    // Registration never confers privilege: the use case always mints a USER.
-    // Elevating a role goes through PATCH /users/:id/role, which is authorized.
+  async create(@Body() body: CreateUserDto, @CurrentActor() actor: Actor) {
+    // No public self-registration: only a privileged actor may create an
+    // account, and it is always a plain USER. Elevating a role goes through
+    // PATCH /users/:id/role, which is authorized.
     const user = await this.createUser.execute({
+      actor,
       name: body.name,
       password: body.password,
     });

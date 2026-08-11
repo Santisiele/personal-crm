@@ -23,6 +23,15 @@ export class UserAccessPolicy {
     return this.isPrivileged(actor);
   }
 
+  /**
+   * Creating an account is reserved for privileged actors (ADMIN, CREATOR):
+   * there is no public self-registration. A new account is always a plain USER;
+   * elevating it goes through canAssignRole.
+   */
+  canCreateUser(actor: Actor): boolean {
+    return this.isPrivileged(actor);
+  }
+
   canDeactivate(actor: Actor): boolean {
     return this.isPrivileged(actor);
   }

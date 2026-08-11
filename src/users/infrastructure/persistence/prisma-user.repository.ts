@@ -1,5 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { User, UserId } from '@/users/domain/user';
+import { UserNameTakenError } from '@/users/domain/user-name-taken.error';
 import { UserRole } from '@/users/domain/user-role';
 import { UserRepository } from '@/users/domain/user.repository';
 
@@ -17,13 +18,7 @@ export class PrismaUserRepository implements UserRepository {
     const userRoleId = await this.resolveRoleId(user.role);
 
     if (user.id === null) {
-      const created = await this.prisma.app_user.create({
-        data: {
-          name: user.name,
-          user_password_hash: user.passwordHash,
-          user_role_id: userRoleId,
-        },
-      });
+      const created = await this.create(user, userRoleId);
       user.assignId(created.id.toString());
       return;
     }
@@ -36,6 +31,32 @@ export class PrismaUserRepository implements UserRepository {
         user_role_id: userRoleId,
       },
     });
+  }
+
+  /**
+   * Inserts a new user row. The `name` column is unique in the database, so a
+   * clash raises Prisma's P2002; we translate it to the domain UserNameTakenError
+   * (→ 409) rather than let a raw driver error surface as a 500. This also guards
+   * the case a name is held by a logically-deleted user that findByName skips.
+   */
+  private async create(user: User, userRoleId: bigint) {
+    try {
+      return await this.prisma.app_user.create({
+        data: {
+          name: user.name,
+          user_password_hash: user.passwordHash,
+          user_role_id: userRoleId,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new UserNameTakenError(user.name);
+      }
+      throw error;
+    }
   }
 
   async findById(id: UserId): Promise<User | null> {

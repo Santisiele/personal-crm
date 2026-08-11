@@ -1,13 +1,20 @@
 Feature: User Management
 
-Registration is open to anyone but never confers privilege: a self-registered
-user is always a plain USER. Elevated roles are reached only by an authorized
-grant (see role_assignment.feature), never at sign-up.
+There is no public self-registration: only a privileged actor (ADMIN, CREATOR)
+may create an account, and a new account is always a plain USER. Elevated roles
+are reached only by an authorized grant (see role_assignment.feature), never at
+creation.
 
-Scenario: Registering a user creates a plain user
-When someone registers
+Scenario: A privileged actor creates a plain user
+Given a creator is authenticated
+When the creator creates a user
 Then the user should be stored
 And the user role should be USER
+
+Scenario: A plain user cannot create a user
+Given a plain user is authenticated
+When the user attempts to create a user
+Then creating the user is denied
 
 Scenario: Change own password
 Given a user is authenticated

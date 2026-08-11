@@ -7,6 +7,7 @@ import { ChangePassword } from '@/users/application/change-password.use-case';
 import { ChangeUserRole } from '@/users/application/change-user-role.use-case';
 import { InMemoryUserRepository } from '@/users/infrastructure/persistence/in-memory-user.repository';
 import { FakePasswordHasher } from '@/users/tests/doubles/fake-password-hasher';
+import { UserAccessDeniedError } from '@/users/domain/user-access-denied.error';
 import { UserNameTakenError } from '@/users/domain/user-name-taken.error';
 
 const feature = loadFeature('specs/user_managment.feature', { errors: false });
@@ -19,37 +20,50 @@ defineFeature(feature, (test) => {
   let changeUserRole: ChangeUserRole;
   let createdUser: User;
   let actor: Actor;
+  // A privileged principal used to create accounts (creation is privileged-only).
+  let creatorActor: Actor;
   let oldPassword: string;
   let conflictRejected: boolean;
+  let denied: boolean;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     users = new InMemoryUserRepository();
     hasher = new FakePasswordHasher();
     createUser = new CreateUser(users, hasher);
     changePassword = new ChangePassword(users, hasher);
     changeUserRole = new ChangeUserRole(users);
     conflictRejected = false;
+    denied = false;
+
+    const creator = User.create({
+      name: 'Acting Creator',
+      role: UserRole.CREATOR,
+      passwordHash: 'hashed',
+    });
+    await users.save(creator);
+    creatorActor = { id: creator.id!, role: UserRole.CREATOR };
   });
 
+  const create = (name: string, password: string): Promise<User> =>
+    createUser.execute({ actor: creatorActor, name, password });
+
   const aCreatorIsAuthenticated = (given: DefineStepFunction) => {
-    given('a creator is authenticated', async () => {
-      // Role assignment is gated, so the acting principal must be a real stored
-      // user with the authority to grant roles (see role_assignment.feature).
-      const me = User.create({
-        name: 'Acting Creator',
-        role: UserRole.CREATOR,
-        passwordHash: 'hashed',
-      });
-      await users.save(me);
-      actor = { id: me.id!, role: UserRole.CREATOR };
+    given('a creator is authenticated', () => {
+      actor = creatorActor;
     });
   };
 
-  test('Registering a user creates a plain user', ({ when, then, and }) => {
-    when('someone registers', async () => {
-      // Registration takes no role: the use case always mints a plain USER, so
-      // sign-up can never confer privilege.
+  test('A privileged actor creates a plain user', ({
+    given,
+    when,
+    then,
+    and,
+  }) => {
+    aCreatorIsAuthenticated(given);
+
+    when('the creator creates a user', async () => {
       createdUser = await createUser.execute({
+        actor,
         name: 'Jane Doe',
         password: 'initial-password',
       });
@@ -65,13 +79,37 @@ defineFeature(feature, (test) => {
     });
   });
 
+  test('A plain user cannot create a user', ({ given, when, then }) => {
+    given('a plain user is authenticated', () => {
+      actor = { id: 'plain-1', role: UserRole.USER };
+    });
+
+    when('the user attempts to create a user', async () => {
+      try {
+        await createUser.execute({
+          actor,
+          name: 'Jane Doe',
+          password: 'initial-password',
+        });
+      } catch (error) {
+        if (error instanceof UserAccessDeniedError) {
+          denied = true;
+        } else {
+          throw error;
+        }
+      }
+    });
+
+    then('creating the user is denied', async () => {
+      expect(denied).toBe(true);
+      expect(await users.findByName('Jane Doe')).toBeNull();
+    });
+  });
+
   test('Change own password', ({ given, when, then, and }) => {
     given('a user is authenticated', async () => {
       oldPassword = 'old-password';
-      createdUser = await createUser.execute({
-        name: 'Jane Doe',
-        password: oldPassword,
-      });
+      createdUser = await create('Jane Doe', oldPassword);
     });
 
     when('changes the password', async () => {
@@ -100,10 +138,7 @@ defineFeature(feature, (test) => {
     aCreatorIsAuthenticated(given);
 
     and('a user exists with role USER', async () => {
-      createdUser = await createUser.execute({
-        name: 'Jane Doe',
-        password: 'initial-password',
-      });
+      createdUser = await create('Jane Doe', 'initial-password');
     });
 
     when("changes the user's role to ADMIN", async () => {
@@ -126,18 +161,12 @@ defineFeature(feature, (test) => {
     then,
   }) => {
     given('a user named "Jane Doe" already exists', async () => {
-      createdUser = await createUser.execute({
-        name: 'Jane Doe',
-        password: 'initial-password',
-      });
+      createdUser = await create('Jane Doe', 'initial-password');
     });
 
     when('creating another user named "Jane Doe"', async () => {
       try {
-        await createUser.execute({
-          name: 'Jane Doe',
-          password: 'another-password',
-        });
+        await create('Jane Doe', 'another-password');
       } catch (error) {
         if (error instanceof UserNameTakenError) {
           conflictRejected = true;
