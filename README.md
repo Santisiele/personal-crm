@@ -145,6 +145,12 @@ Backend de un CRM en **NestJS + Prisma (PostgreSQL)**, construido con **arquitec
   - `GET /me/assignments/pending` (`MyAssignmentsController`) — las asignaciones **pendientes propias** del actor (su bandeja), most-recent first. Como el historial de una tarea es owner-gated, un assignee que no es dueño no tenía forma de descubrir sus asignaciones pendientes para responderlas; este endpoint las devuelve acotadas a `actor.id` (sin política extra: solo ve las propias). Apoyado en `TaskAssignmentRepository.findPendingByAssignee` y el caso de uso `ListMyPendingAssignments`.
 - **Relación con `tasks`**: este contexto **lee/extiende el historial**; `tasks` solo actualiza la asignación más reciente en su lugar al reasignar (eso no se toca acá). `TaskAssignmentsModule` importa `TasksModule` (reusa `TASK_REPOSITORY` y `TaskAccessPolicy`).
 
+### Follow-ups (`src/follow-ups`)
+Read model **cross-contexto** para el tablero de seguimiento (una fila por tarea con su próximo paso).
+- **Caso de uso**: `ListFollowUps(actor)` — toma las tareas visibles (`TaskAccessPolicy.isVisibleInList`: dueño/asignado/privilegiado), y las enriquece con nombre de empresa/contacto/responsable y la **última actividad**; arma `nextActionDate`/`nextAction` desde el próximo paso de esa actividad, con **fallback** a la fecha de vencimiento y el título de la tarea. Ordena por `nextActionDate` ascendente (los sin fecha, al final). El resumen de última actividad se adjunta a cualquier tarea que el actor ve en su lista (más permisivo que el log por-tarea, a propósito) y nunca a tareas fuera de esa visibilidad.
+- **Endpoint**: `GET /follow-ups` (`FollowUpsController`, cualquier autenticado) — las filas del tablero. Reemplaza el armado client-side que dependía del feed global privilegiado, así la vista está **completa para cualquier usuario**.
+- **Módulo**: `FollowUpsModule` importa `TasksModule`/`TaskActivitiesModule`/`CompaniesModule`/`ContactsModule`/`UsersModule` y reusa sus repos (no persiste nada propio). Para eso, `TaskActivitiesModule` exporta `TASK_ACTIVITY_REPOSITORY` y `CompaniesModule` exporta `COMPANY_REPOSITORY`.
+
 ### Shared / common / auth
 - `src/shared/domain/actor.ts` — **`Actor`** (`{ id, role }`), kernel compartido entre contextos.
 - `src/shared/domain/domain-error.ts` — jerarquía `DomainError` → `NotFoundError` / `AuthenticationError` / `AuthorizationError` / `ConflictError` (usa `new.target.name`).
