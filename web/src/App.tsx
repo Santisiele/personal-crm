@@ -10,6 +10,7 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { CalendarPage } from '@/pages/CalendarPage';
 import { TasksPage } from '@/pages/TasksPage';
 import { KanbanPage } from '@/pages/KanbanPage';
+import { FollowUpPage } from '@/pages/FollowUpPage';
 import { InboxPage } from '@/pages/InboxPage';
 import { ActivityFeedPage } from '@/pages/ActivityFeedPage';
 import { ContactsPage } from '@/pages/ContactsPage';
@@ -30,6 +31,7 @@ export function App() {
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="board" element={<KanbanPage />} />
+          <Route path="follow-up" element={<FollowUpPage />} />
           <Route path="inbox" element={<InboxPage />} />
           <Route path="contacts" element={<ContactsPage />} />
           <Route path="companies" element={<CompaniesPage />} />
