@@ -538,6 +538,27 @@ describe('App (e2e)', () => {
         .send({ name, password: 'secret-password' })
         .expect(409);
     });
+
+    it("reuses a deactivated user's name for a new account (201)", async () => {
+      const name = `E2E Reuse ${RUN}`;
+      const oldId = await createUser(name, 'USER');
+
+      // Deactivate (logical delete): the name frees up under the partial index.
+      await request(app.getHttpServer())
+        .delete(`/users/${oldId}`)
+        .set(bearer(creatorToken))
+        .expect(204);
+
+      const res = await request(app.getHttpServer())
+        .post('/users')
+        .set(bearer(creatorToken))
+        .send({ name, password: 'secret-password' })
+        .expect(201);
+      const body = res.body as { id: string; name: string };
+      createdUserIds.push(body.id);
+      expect(body.name).toBe(name);
+      expect(body.id).not.toBe(oldId);
+    });
   });
 
   describe('contacts and companies', () => {
