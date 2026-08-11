@@ -59,6 +59,11 @@ web/src/
 - Cada tarea se pinta con un **color determinístico por persona** (`hooks/userColors.ts`), estable entre sesiones. Los privilegiados tienen un toggle **dueño/asignado** y una **leyenda** nombre↔color (los nombres salen de `GET /users`).
 - **Reasignar al editar** (calendario o lista): el modal de tarea muestra un selector **"Reasignar a"** cuando el actor puede reasignar (el dueño, o un privilegiado que supera en rol al asignado actual — espeja `canReassign` de la API). Las opciones salen de `GET /users/assignable`, así que hasta un USER puede reasignar su propia tarea; al guardar, si el asignado cambió se dispara `PATCH /tasks/:id/assignee`.
 
+## Seguimiento
+
+- **Seguimiento** (`/follow-up`): una tabla estilo planilla, **una fila por tarea**, ordenada por la **próxima acción** ascendente (lo más urgente arriba, con color por urgencia: vencida roja, hoy naranja). Columnas: Empresa, Con quién (contacto), Última acción (qué se hizo · fecha · quién), Próxima acción (fecha), Qué hacer, Quién lo hará (responsable). El "próximo paso" sale del `nextAction`/`nextActionDate` de la última actividad; si todavía no hay actividad, cae a la fecha de vencimiento y el título. Al tocar una fila se abre el drawer de la tarea para registrar la próxima actividad. Los nombres se resuelven de empresas/contactos/directorio asignable; el enriquecimiento de actividad usa el feed global, así que está más completo para privilegiados.
+- La tarea puede apuntar a una **empresa** y a un **contacto de esa empresa** (selects en el modal de tarea; el contacto se filtra por la empresa elegida).
+
 ## Tablero, actividad y bandeja
 
 - **Tablero** (`/board`): las tareas agrupadas en columnas Pendiente / En progreso / Completada, coloreadas por responsable. **Drag & drop nativo** (HTML5) entre columnas cambia el estado (`PATCH /tasks/:id/status`).
