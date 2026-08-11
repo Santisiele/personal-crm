@@ -11,6 +11,7 @@ import { ContactsModule } from '@/contacts/contacts.module';
 import { TasksModule } from '@/tasks/tasks.module';
 import { TaskActivitiesModule } from '@/task-activities/task-activities.module';
 import { TaskAssignmentsModule } from '@/task-assignments/task-assignments.module';
+import { FollowUpsModule } from '@/follow-ups/follow-ups.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { TaskAssignmentsModule } from '@/task-assignments/task-assignments.modul
     TasksModule,
     TaskActivitiesModule,
     TaskAssignmentsModule,
+    FollowUpsModule,
   ],
   controllers: [AppController],
   providers: [

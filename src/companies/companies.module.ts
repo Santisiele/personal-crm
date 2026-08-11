@@ -136,6 +136,7 @@ import { DeleteCompany } from '@/companies/application/delete-company.use-case';
   ],
   controllers: [CompaniesController, CompanyStatusesController],
   exports: [
+    COMPANY_REPOSITORY,
     CreateCompany,
     LinkContactToCompany,
     ListCompanies,

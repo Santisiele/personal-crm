@@ -52,6 +52,11 @@ import { ViewAllActivity } from '@/task-activities/application/view-all-activity
     },
   ],
   controllers: [TaskActivitiesController, ActivityFeedController],
-  exports: [LogTaskActivity, ViewActivityLog, ViewAllActivity],
+  exports: [
+    TASK_ACTIVITY_REPOSITORY,
+    LogTaskActivity,
+    ViewActivityLog,
+    ViewAllActivity,
+  ],
 })
 export class TaskActivitiesModule {}
