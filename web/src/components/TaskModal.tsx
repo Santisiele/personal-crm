@@ -14,6 +14,7 @@ import { notifications } from '@mantine/notifications';
 import { outranks, type Task } from '@/api/types';
 import { useAuth } from '@/auth/AuthContext';
 import { useAssignableUsers, useUsers } from '@/hooks/useUsers';
+import { useCompanies, useCompany } from '@/hooks/useCompanies';
 import { useCreateTask, useEditTask, useReassignTask } from '@/hooks/useTasks';
 
 interface TaskModalProps {
@@ -30,6 +31,8 @@ interface FormValues {
   description: string;
   dueDate: Date | null;
   assigneeId: string | null;
+  companyId: string | null;
+  contactId: string | null;
 }
 
 function toDate(iso: string | null): Date | null {
@@ -57,10 +60,29 @@ export function TaskModal({
   // The full directory (with roles) is privileged-only; used to compare the
   // current assignee's rank when deciding if this actor may reassign.
   const { data: directory } = useUsers();
+  const { data: companies } = useCompanies();
   const createTask = useCreateTask();
   const editTask = useEditTask();
   const reassignTask = useReassignTask();
   const editing = Boolean(task);
+
+  const form = useForm<FormValues>({
+    initialValues: {
+      title: '',
+      description: '',
+      dueDate: null,
+      assigneeId: user?.id ?? null,
+      companyId: null,
+      contactId: null,
+    },
+    validate: {
+      title: (v) => (v.trim() ? null : 'El título es obligatorio'),
+      description: (v) => (v.trim() ? null : 'La descripción es obligatoria'),
+    },
+  });
+
+  // The contact picker is scoped to the linked company's contacts.
+  const { data: selectedCompany } = useCompany(form.values.companyId ?? undefined);
 
   // Whether this actor may reassign this task: its owner always may; otherwise a
   // privileged actor may if it outranks the current assignee (mirrors the API's
@@ -81,19 +103,6 @@ export function TaskModal({
     return assigneeRole ? outranks(user.role, assigneeRole) : false;
   }, [editing, task, user, privileged, directory]);
 
-  const form = useForm<FormValues>({
-    initialValues: {
-      title: '',
-      description: '',
-      dueDate: null,
-      assigneeId: user?.id ?? null,
-    },
-    validate: {
-      title: (v) => (v.trim() ? null : 'El título es obligatorio'),
-      description: (v) => (v.trim() ? null : 'La descripción es obligatoria'),
-    },
-  });
-
   // Re-seed the form whenever the modal opens for a different task/day.
   useEffect(() => {
     if (!opened) {
@@ -104,12 +113,21 @@ export function TaskModal({
       description: task?.description ?? '',
       dueDate: toDate(task?.dueDate ?? defaultDate ?? null),
       assigneeId: task?.assigneeId ?? user?.id ?? null,
+      companyId: task?.companyId ?? null,
+      contactId: task?.contactId ?? null,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, task, defaultDate]);
 
   const assigneeOptions =
     assignableUsers?.map((u) => ({ value: u.id, label: u.name })) ?? [];
+  const companyOptions =
+    companies?.map((c) => ({ value: c.id, label: c.companyName })) ?? [];
+  const contactOptions =
+    selectedCompany?.contacts.map((c) => ({
+      value: c.id,
+      label: c.contactName,
+    })) ?? [];
 
   // Show the assignee picker on create for privileged actors (who may assign to
   // others), and on edit whenever this actor may reassign the task.
@@ -124,6 +142,9 @@ export function TaskModal({
             title: values.title,
             description: values.description,
             dueDate: toIso(values.dueDate),
+            companyId: values.companyId,
+            // A contact only makes sense with a company.
+            contactId: values.companyId ? values.contactId : null,
           },
         });
         // Reassignment is a separate, authorized call; only when it changed.
@@ -146,6 +167,8 @@ export function TaskModal({
           // Only privileged actors may assign to someone else; a plain user's
           // task is self-assigned by omitting assigneeId.
           assigneeId: privileged ? values.assigneeId : undefined,
+          companyId: values.companyId,
+          contactId: values.companyId ? values.contactId : null,
         });
         notifications.show({ color: 'green', message: 'Tarea creada.' });
       }
@@ -187,6 +210,33 @@ export function TaskModal({
             clearable
             valueFormat="DD/MM/YYYY"
             {...form.getInputProps('dueDate')}
+          />
+          <Select
+            label="Empresa"
+            placeholder="Sin empresa"
+            data={companyOptions}
+            searchable
+            clearable
+            value={form.values.companyId}
+            onChange={(value) => {
+              form.setFieldValue('companyId', value);
+              // A contact belongs to a company, so a company change resets it.
+              form.setFieldValue('contactId', null);
+            }}
+          />
+          <Select
+            label="Contacto"
+            placeholder={
+              form.values.companyId
+                ? 'Elegí un contacto'
+                : 'Elegí una empresa primero'
+            }
+            data={contactOptions}
+            searchable
+            clearable
+            disabled={!form.values.companyId}
+            nothingFoundMessage="La empresa no tiene contactos vinculados"
+            {...form.getInputProps('contactId')}
           />
           {showAssignee && (
             <Select

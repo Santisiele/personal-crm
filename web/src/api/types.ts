@@ -43,6 +43,7 @@ export interface Task {
   description: string;
   dueDate: string | null;
   companyId: string | null;
+  contactId: string | null;
   status: TaskStatus;
 }
 
@@ -52,12 +53,15 @@ export interface CreateTaskInput {
   assigneeId?: string | null;
   dueDate?: string | null;
   companyId?: string | null;
+  contactId?: string | null;
 }
 
 export interface EditTaskInput {
   title?: string;
   description?: string;
   dueDate?: string | null;
+  companyId?: string | null;
+  contactId?: string | null;
 }
 
 export interface TokenPair {
