@@ -249,6 +249,7 @@ describe('App (e2e)', () => {
           description: 'created over HTTP',
           dueDate: null,
           companyId: null,
+          contactId: null,
           status: 'PENDING',
         });
     });
@@ -335,6 +336,7 @@ describe('App (e2e)', () => {
           description: 'for reassignment',
           dueDate: null,
           companyId: null,
+          contactId: null,
           status: 'PENDING',
         });
     });
@@ -586,6 +588,38 @@ describe('App (e2e)', () => {
         .set(bearer(adminToken))
         .send({ contactId })
         .expect(404);
+    });
+
+    it('creates a task about a company and contact, and re-links it on edit', async () => {
+      const companyId = await createCompany();
+      const contactId = await createContact();
+
+      const created = await request(app.getHttpServer())
+        .post('/tasks')
+        .set(bearer(ownerToken))
+        .send({
+          title: 'Call the company',
+          description: 'x',
+          companyId,
+          contactId,
+        })
+        .expect(201);
+      const taskId = recordTask(
+        created.body as { id: string; ownerId: string; assigneeId: string },
+      ).id;
+      expect((created.body as { companyId: string }).companyId).toBe(companyId);
+      expect((created.body as { contactId: string }).contactId).toBe(contactId);
+
+      // Editing clears the contact and keeps the company.
+      const edited = await request(app.getHttpServer())
+        .patch(`/tasks/${taskId}`)
+        .set(bearer(ownerToken))
+        .send({ contactId: null })
+        .expect(200);
+      expect((edited.body as { companyId: string }).companyId).toBe(companyId);
+      expect(
+        (edited.body as { contactId: string | null }).contactId,
+      ).toBeNull();
     });
   });
 
