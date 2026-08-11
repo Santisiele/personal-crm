@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
-  Anchor,
   Button,
   Card,
   Center,
@@ -15,13 +14,11 @@ import {
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { AxiosError } from 'axios';
-import { register } from '@/api/auth';
 import { useAuth } from '@/auth/AuthContext';
 
 export function LoginPage() {
   const { user, loading, login, refreshUser } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm({
@@ -47,24 +44,16 @@ export function LoginPage() {
   const handleSubmit = form.onSubmit(async (values) => {
     setSubmitting(true);
     try {
-      if (mode === 'register') {
-        // New users self-register as plain USERs (the API enforces this); a
-        // CREATOR can promote them later from the Users screen.
-        await register(values);
-        await login(values.name, values.password);
-      } else {
-        await login(values.name, values.password);
-      }
+      await login(values.name, values.password);
       await refreshUser();
       navigate('/', { replace: true });
     } catch (error) {
-      const status = error instanceof AxiosError ? error.response?.status : undefined;
+      const status =
+        error instanceof AxiosError ? error.response?.status : undefined;
       const message =
         status === 401
           ? 'Nombre o contraseña incorrectos.'
-          : status === 409
-            ? 'Ya existe un usuario con ese nombre.'
-            : 'No se pudo completar la operación. Reintentá.';
+          : 'No se pudo iniciar sesión. Reintentá.';
       notifications.show({ color: 'red', message });
     } finally {
       setSubmitting(false);
@@ -78,9 +67,7 @@ export function LoginPage() {
           <div>
             <Title order={2}>Personal CRM</Title>
             <Text c="dimmed" size="sm">
-              {mode === 'login'
-                ? 'Ingresá para gestionar tus tareas y contactos.'
-                : 'Creá tu cuenta para empezar.'}
+              Ingresá para gestionar tus tareas y contactos.
             </Text>
           </div>
 
@@ -97,20 +84,13 @@ export function LoginPage() {
                 {...form.getInputProps('password')}
               />
               <Button type="submit" loading={submitting} fullWidth>
-                {mode === 'login' ? 'Ingresar' : 'Crear cuenta'}
+                Ingresar
               </Button>
             </Stack>
           </form>
 
-          <Text size="sm" ta="center">
-            {mode === 'login' ? '¿No tenés cuenta? ' : '¿Ya tenés cuenta? '}
-            <Anchor
-              component="button"
-              type="button"
-              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-            >
-              {mode === 'login' ? 'Registrate' : 'Ingresá'}
-            </Anchor>
+          <Text size="xs" c="dimmed" ta="center">
+            ¿No tenés cuenta? Pedile a un administrador que te dé de alta.
           </Text>
         </Stack>
       </Card>

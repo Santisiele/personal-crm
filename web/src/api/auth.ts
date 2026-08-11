@@ -23,15 +23,3 @@ export async function fetchMe(): Promise<UserView> {
   const { data } = await api.get<UserView>('/auth/me');
   return data;
 }
-
-/**
- * Registers a new user. Public endpoint; the account is always created as a
- * plain USER (the API rejects a role at registration), so no role is sent.
- */
-export async function register(input: {
-  name: string;
-  password: string;
-}): Promise<UserView> {
-  const { data } = await axios.post<UserView>(`${baseURL}/users`, input);
-  return data;
-}
