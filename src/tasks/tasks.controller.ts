@@ -74,6 +74,7 @@ export class TasksController {
       assigneeId: body.assigneeId,
       dueDate: body.dueDate,
       companyId: body.companyId,
+      contactId: body.contactId,
     });
     return this.present(task);
   }
@@ -133,8 +134,10 @@ export class TasksController {
       taskId: id,
       title: body.title,
       description: body.description,
-      // Undefined leaves the due date unchanged; null clears it.
+      // Undefined leaves the field unchanged; null clears it.
       dueDate: body.dueDate,
+      companyId: body.companyId,
+      contactId: body.contactId,
     });
     return this.present(task);
   }
@@ -219,6 +222,7 @@ export class TasksController {
       description: task.description,
       dueDate: task.dueDate,
       companyId: task.companyId,
+      contactId: task.contactId,
       status: task.status,
     };
   }

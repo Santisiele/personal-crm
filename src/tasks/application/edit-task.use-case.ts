@@ -17,6 +17,10 @@ export interface EditTaskCommand {
    * it, or omitted to leave it unchanged.
    */
   dueDate?: string | null;
+  /** New company link: an id to set it, `null` to clear it, omit to leave it. */
+  companyId?: string | null;
+  /** New contact link: an id to set it, `null` to clear it, omit to leave it. */
+  contactId?: string | null;
 }
 
 /**
@@ -42,6 +46,8 @@ export class EditTask {
       title: command.title,
       description: command.description,
       dueDate: command.dueDate,
+      companyId: command.companyId,
+      contactId: command.contactId,
     });
     await this.tasks.update(task);
     return task;

@@ -8,8 +8,9 @@ export type TaskId = string;
  * reassignment changes. A task may be unassigned (no assignee).
  *
  * It also carries some descriptive data: an optional due date (ISO calendar
- * date 'YYYY-MM-DD' or null), an optional link to a company (companyId or null)
- * and a workflow status (see TaskStatus). A brand-new task starts in the default
+ * date 'YYYY-MM-DD' or null), an optional link to a company (companyId or null),
+ * an optional link to a contact of that company (contactId or null) and a
+ * workflow status (see TaskStatus). A brand-new task starts in the default
  * status; status transitions go through `changeStatus`.
  *
  * Identity is assigned by the repository on first persist (the database owns it,
@@ -24,7 +25,8 @@ export class Task {
     private _title: string,
     private _description: string,
     private _dueDate: string | null,
-    public readonly companyId: string | null,
+    private _companyId: string | null,
+    private _contactId: string | null,
     private _status: TaskStatus,
   ) {}
 
@@ -36,6 +38,7 @@ export class Task {
     assigneeId?: string | null;
     dueDate?: string | null;
     companyId?: string | null;
+    contactId?: string | null;
   }): Task {
     return new Task(
       null,
@@ -45,6 +48,7 @@ export class Task {
       props.description,
       props.dueDate ?? null,
       props.companyId ?? null,
+      props.contactId ?? null,
       DEFAULT_TASK_STATUS,
     );
   }
@@ -58,6 +62,7 @@ export class Task {
     description?: string;
     dueDate?: string | null;
     companyId?: string | null;
+    contactId?: string | null;
     status?: TaskStatus;
   }): Task {
     return new Task(
@@ -68,6 +73,7 @@ export class Task {
       props.description ?? '',
       props.dueDate ?? null,
       props.companyId ?? null,
+      props.contactId ?? null,
       props.status ?? DEFAULT_TASK_STATUS,
     );
   }
@@ -90,6 +96,14 @@ export class Task {
 
   get dueDate(): string | null {
     return this._dueDate;
+  }
+
+  get companyId(): string | null {
+    return this._companyId;
+  }
+
+  get contactId(): string | null {
+    return this._contactId;
   }
 
   get status(): TaskStatus {
@@ -118,6 +132,8 @@ export class Task {
     title?: string;
     description?: string;
     dueDate?: string | null;
+    companyId?: string | null;
+    contactId?: string | null;
   }): void {
     if (changes.title !== undefined) {
       this._title = changes.title;
@@ -127,6 +143,12 @@ export class Task {
     }
     if (changes.dueDate !== undefined) {
       this._dueDate = changes.dueDate;
+    }
+    if (changes.companyId !== undefined) {
+      this._companyId = changes.companyId;
+    }
+    if (changes.contactId !== undefined) {
+      this._contactId = changes.contactId;
     }
   }
 

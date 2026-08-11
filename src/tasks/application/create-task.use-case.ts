@@ -20,6 +20,8 @@ export interface CreateTaskCommand {
   dueDate?: string | null;
   /** Optional id of the company the task is associated with. */
   companyId?: string | null;
+  /** Optional id of the contact (of that company) the task is about. */
+  contactId?: string | null;
 }
 
 /**
@@ -47,6 +49,7 @@ export class CreateTask {
       assigneeId,
       dueDate: command.dueDate,
       companyId: command.companyId,
+      contactId: command.contactId,
     });
     await this.tasks.save(task);
     return task;

@@ -41,4 +41,10 @@ export class CreateTaskDto {
   @IsString()
   @IsNotEmpty()
   readonly companyId?: string;
+
+  /** Optional id of the contact (of that company) the task is about. */
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  readonly contactId?: string;
 }

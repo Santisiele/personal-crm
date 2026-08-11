@@ -71,6 +71,8 @@ export class PrismaTaskRepository implements TaskRepository {
         title: task.title,
         description: task.description,
         due_date: task.dueDate ? new Date(task.dueDate) : null,
+        company_id: task.companyId ? BigInt(task.companyId) : null,
+        contact_id: task.contactId ? BigInt(task.contactId) : null,
       },
     });
   }
@@ -107,6 +109,7 @@ export class PrismaTaskRepository implements TaskRepository {
     description: string;
     due_date: Date | null;
     company_id: bigint | null;
+    contact_id: bigint | null;
     status_id: bigint;
   }): Promise<Task> {
     const id = row.id.toString();
@@ -121,6 +124,7 @@ export class PrismaTaskRepository implements TaskRepository {
       description: row.description,
       dueDate: row.due_date ? toIsoDate(row.due_date) : null,
       companyId: row.company_id ? row.company_id.toString() : null,
+      contactId: row.contact_id ? row.contact_id.toString() : null,
       status: await this.statusFromId(row.status_id),
     });
   }
@@ -135,6 +139,7 @@ export class PrismaTaskRepository implements TaskRepository {
         status_id: await this.statusId(task.status),
         due_date: task.dueDate ? new Date(task.dueDate) : null,
         company_id: task.companyId ? BigInt(task.companyId) : null,
+        contact_id: task.contactId ? BigInt(task.contactId) : null,
       },
     });
     task.assignId(created.id.toString());
