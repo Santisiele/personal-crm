@@ -590,6 +590,38 @@ describe('App (e2e)', () => {
         .expect(404);
     });
 
+    it('surfaces a task on the follow-up board with its company and next step', async () => {
+      const companyId = await createCompany();
+      const created = await request(app.getHttpServer())
+        .post('/tasks')
+        .set(bearer(ownerToken))
+        .send({
+          title: 'Follow up call',
+          description: 'x',
+          companyId,
+          dueDate: '2026-09-01',
+        })
+        .expect(201);
+      const taskId = recordTask(
+        created.body as { id: string; ownerId: string; assigneeId: string },
+      ).id;
+
+      const res = await request(app.getHttpServer())
+        .get('/follow-ups')
+        .set(bearer(ownerToken))
+        .expect(200);
+      const rows = res.body as Array<{
+        taskId: string;
+        nextAction: string;
+        nextActionDate: string | null;
+      }>;
+      const row = rows.find((r) => r.taskId === taskId);
+      expect(row).toBeDefined();
+      // No activity yet, so the next step falls back to the task title and due date.
+      expect(row!.nextAction).toBe('Follow up call');
+      expect(row!.nextActionDate).toBe('2026-09-01');
+    });
+
     it('creates a task about a company and contact, and re-links it on edit', async () => {
       const companyId = await createCompany();
       const contactId = await createContact();
