@@ -416,21 +416,38 @@ describe('App (e2e)', () => {
       }
     });
 
-    it('registers a public user as a plain USER (201)', async () => {
+    it('lets a privileged user create a plain USER (201)', async () => {
       const res = await request(app.getHttpServer())
         .post('/users')
-        .send({ name: `E2E Register ${RUN}`, password: 'secret-password' })
+        .set(bearer(creatorToken))
+        .send({ name: `E2E Create ${RUN}`, password: 'secret-password' })
         .expect(201);
       const body = res.body as { id: string; name: string; role: string };
       createdUserIds.push(body.id);
       expect(body.role).toBe('USER');
     });
 
-    it('rejects a role supplied at registration (400)', async () => {
-      // Registration carries no role; forbidNonWhitelisted turns the smuggled
-      // field into a 400 rather than a silent privilege grant.
+    it('forbids anonymous user creation (401)', async () => {
       await request(app.getHttpServer())
         .post('/users')
+        .send({ name: `E2E Anon ${RUN}`, password: 'secret-password' })
+        .expect(401);
+    });
+
+    it('forbids a plain user from creating a user (403)', async () => {
+      await request(app.getHttpServer())
+        .post('/users')
+        .set(bearer(ownerToken))
+        .send({ name: `E2E Denied ${RUN}`, password: 'secret-password' })
+        .expect(403);
+    });
+
+    it('rejects a role supplied at creation (400)', async () => {
+      // Creation carries no role; forbidNonWhitelisted turns the smuggled field
+      // into a 400 rather than a silent privilege grant.
+      await request(app.getHttpServer())
+        .post('/users')
+        .set(bearer(creatorToken))
         .send({
           name: `E2E No Escalate ${RUN}`,
           password: 'secret-password',
@@ -517,6 +534,7 @@ describe('App (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/users')
+        .set(bearer(creatorToken))
         .send({ name, password: 'secret-password' })
         .expect(409);
     });
