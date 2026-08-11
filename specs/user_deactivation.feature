@@ -27,3 +27,9 @@ Scenario: Deactivating a user that does not exist is reported as not found
 Given an administrator is authenticated
 When the administrator deactivates a user that does not exist
 Then the user is reported as not found
+
+Scenario: The name of a deactivated user can be reused
+Given an administrator is authenticated
+And another user exists
+When that user is deactivated and a new account takes the same name
+Then the new account is created with that name

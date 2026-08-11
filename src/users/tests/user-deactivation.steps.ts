@@ -2,6 +2,7 @@ import { loadFeature, defineFeature, DefineStepFunction } from 'jest-cucumber';
 import { UserRole } from '@/users/domain/user-role';
 import { User } from '@/users/domain/user';
 import { Actor } from '@/shared/domain/actor';
+import { CreateUser } from '@/users/application/create-user.use-case';
 import { DeactivateUser } from '@/users/application/deactivate-user.use-case';
 import { ListUsers } from '@/users/application/list-users.use-case';
 import { ViewUser } from '@/users/application/view-user.use-case';
@@ -9,6 +10,7 @@ import { UserView } from '@/users/application/user-view';
 import { UserAccessDeniedError } from '@/users/domain/user-access-denied.error';
 import { UserNotFoundError } from '@/users/domain/user-not-found.error';
 import { InMemoryUserRepository } from '@/users/infrastructure/persistence/in-memory-user.repository';
+import { FakePasswordHasher } from '@/users/tests/doubles/fake-password-hasher';
 
 const feature = loadFeature('specs/user_deactivation.feature', {
   errors: false,
@@ -17,16 +19,19 @@ const feature = loadFeature('specs/user_deactivation.feature', {
 defineFeature(feature, (test) => {
   let users: InMemoryUserRepository;
   let deactivateUser: DeactivateUser;
+  let createUser: CreateUser;
   let listUsers: ListUsers;
   let viewUser: ViewUser;
   let actor: Actor;
   let otherUser: User;
+  let recreated: User;
   let denied: boolean;
   let notFound: boolean;
 
   beforeEach(() => {
     users = new InMemoryUserRepository();
     deactivateUser = new DeactivateUser(users);
+    createUser = new CreateUser(users, new FakePasswordHasher());
     listUsers = new ListUsers(users);
     viewUser = new ViewUser(users);
     denied = false;
@@ -153,6 +158,35 @@ defineFeature(feature, (test) => {
 
     then('the user is reported as not found', () => {
       expect(notFound).toBe(true);
+    });
+  });
+
+  test('The name of a deactivated user can be reused', ({
+    given,
+    and,
+    when,
+    then,
+  }) => {
+    anAdministratorIsAuthenticated(given);
+    anotherUserExists(and);
+
+    when(
+      'that user is deactivated and a new account takes the same name',
+      async () => {
+        await deactivateUser.execute({ actor, userId: otherUser.id! });
+        // findByName skips the deactivated user, so the name is free again.
+        recreated = await createUser.execute({
+          actor,
+          name: otherUser.name,
+          password: 'a-new-password',
+        });
+      },
+    );
+
+    then('the new account is created with that name', async () => {
+      expect(recreated.id).not.toBe(otherUser.id);
+      const found = await users.findByName(otherUser.name);
+      expect(found!.id).toBe(recreated.id);
     });
   });
 });
